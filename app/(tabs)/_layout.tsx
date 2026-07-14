@@ -1,18 +1,19 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 
+import { useAppTheme } from '@/components/app-screen';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const theme = useAppTheme();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: theme.chores,
+        tabBarInactiveTintColor: theme.muted,
+        tabBarStyle: { backgroundColor: theme.card, borderTopColor: theme.border },
         headerShown: false,
         tabBarButton: HapticTab,
       }}>
@@ -24,10 +25,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="ledger"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Ledger',
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="list.bullet.rectangle" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="chores"
+        options={{
+          title: 'Chores',
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="checklist" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="household"
+        options={{
+          title: 'Household',
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.2.fill" color={color} />,
         }}
       />
     </Tabs>
