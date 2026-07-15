@@ -75,6 +75,31 @@ create table public.chore_logs (
   )
 );
 
+create table public.settlements (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  created_by uuid not null references public.users(id) on delete restrict,
+  accepted_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table public.settlement_transactions (
+  id uuid primary key default gen_random_uuid(),
+  settlement_id uuid not null references public.settlements(id) on delete cascade,
+  from_user_id uuid not null references public.users(id) on delete restrict,
+  to_user_id uuid not null references public.users(id) on delete restrict,
+  amount integer not null check (amount > 0),
+  status text not null default 'pending' check (status in ('pending', 'confirmed')),
+  confirmed_by uuid references public.users(id) on delete restrict,
+  confirmed_at timestamptz,
+  created_at timestamptz not null default now(),
+  check (from_user_id <> to_user_id),
+  check (
+    (status = 'pending' and confirmed_by is null and confirmed_at is null)
+    or (status = 'confirmed' and confirmed_by is not null and confirmed_at is not null)
+  )
+);
+
 create index household_members_user_household_idx on public.household_members(user_id, household_id);
 create index household_members_active_idx on public.household_members(household_id, user_id) where status = 'active';
 create index expenses_household_created_idx on public.expenses(household_id, created_at desc);
@@ -82,6 +107,8 @@ create index expense_splits_user_idx on public.expense_splits(user_id);
 create index chore_templates_household_active_idx on public.chore_templates(household_id, created_at desc) where not is_deleted;
 create index chore_logs_template_due_idx on public.chore_logs(chore_template_id, due_date);
 create index chore_logs_completed_idx on public.chore_logs(completed_at desc) where status = 'completed';
+create index settlements_household_accepted_idx on public.settlements(household_id, accepted_at desc);
+create index settlement_transactions_settlement_idx on public.settlement_transactions(settlement_id);
 
 -- Private helpers deliberately use SECURITY DEFINER to avoid recursive RLS checks.
 -- They are schema-qualified, use an empty search path, and are not client-callable.
@@ -210,6 +237,22 @@ as $$
   );
 $$;
 
+create or replace function private.can_read_settlement_transaction(p_transaction_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.settlement_transactions as transaction
+    join public.settlements as settlement on settlement.id = transaction.settlement_id
+    where transaction.id = p_transaction_id
+      and private.is_household_member(settlement.household_id)
+  );
+$$;
+
 revoke all on function private.is_household_member(uuid) from public;
 revoke all on function private.is_active_household_member(uuid) from public;
 revoke all on function private.is_user_active_household_member(uuid, uuid) from public;
@@ -218,6 +261,7 @@ revoke all on function private.can_read_expense(uuid) from public;
 revoke all on function private.can_edit_expense(uuid) from public;
 revoke all on function private.can_read_chore_log(uuid) from public;
 revoke all on function private.can_edit_chore_log(uuid) from public;
+revoke all on function private.can_read_settlement_transaction(uuid) from public;
 grant usage on schema private to authenticated;
 grant execute on function private.is_household_member(uuid) to authenticated;
 grant execute on function private.is_active_household_member(uuid) to authenticated;
@@ -227,6 +271,7 @@ grant execute on function private.can_read_expense(uuid) to authenticated;
 grant execute on function private.can_edit_expense(uuid) to authenticated;
 grant execute on function private.can_read_chore_log(uuid) to authenticated;
 grant execute on function private.can_edit_chore_log(uuid) to authenticated;
+grant execute on function private.can_read_settlement_transaction(uuid) to authenticated;
 
 create or replace function private.handle_new_user()
 returns trigger
@@ -399,6 +444,75 @@ begin
 end;
 $$;
 
+create or replace function public.accept_settlement(p_household_id uuid, p_transactions jsonb)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_settlement_id uuid;
+  v_transaction jsonb;
+  v_from_user_id uuid;
+  v_to_user_id uuid;
+  v_amount integer;
+begin
+  if (select auth.uid()) is null or not private.is_active_household_member(p_household_id) then
+    raise exception 'Only an active household member can accept a settlement plan';
+  end if;
+  if jsonb_typeof(p_transactions) <> 'array' then
+    raise exception 'Settlement transactions must be an array';
+  end if;
+
+  insert into public.settlements (household_id, created_by)
+  values (p_household_id, (select auth.uid()))
+  returning id into v_settlement_id;
+
+  for v_transaction in select value from jsonb_array_elements(p_transactions)
+  loop
+    v_from_user_id := (v_transaction ->> 'from_user_id')::uuid;
+    v_to_user_id := (v_transaction ->> 'to_user_id')::uuid;
+    v_amount := (v_transaction ->> 'amount')::integer;
+    if v_amount <= 0
+      or v_from_user_id = v_to_user_id
+      or not private.is_user_active_household_member(p_household_id, v_from_user_id)
+      or not private.is_user_active_household_member(p_household_id, v_to_user_id) then
+      raise exception 'Each settlement payment must be between active household members with a positive amount';
+    end if;
+    insert into public.settlement_transactions (settlement_id, from_user_id, to_user_id, amount)
+    values (v_settlement_id, v_from_user_id, v_to_user_id, v_amount);
+  end loop;
+
+  return v_settlement_id;
+end;
+$$;
+
+create or replace function public.confirm_settlement_transaction(p_transaction_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authentication is required';
+  end if;
+
+  update public.settlement_transactions as transaction
+  set status = 'confirmed', confirmed_by = (select auth.uid()), confirmed_at = now()
+  from public.settlements as settlement
+  where transaction.id = p_transaction_id
+    and settlement.id = transaction.settlement_id
+    and transaction.status = 'pending'
+    and transaction.from_user_id = (select auth.uid())
+    and private.is_active_household_member(settlement.household_id);
+
+  if not found then
+    raise exception 'Only the payer can confirm a pending settlement payment';
+  end if;
+end;
+$$;
+
 create or replace function public.reclaim_member(p_household_id uuid, p_user_id uuid)
 returns void
 language plpgsql
@@ -428,11 +542,15 @@ revoke execute on function public.join_household(text) from public;
 revoke execute on function public.move_out_member(uuid, uuid) from public;
 revoke execute on function public.reclaim_member(uuid, uuid) from public;
 revoke execute on function public.create_expense(uuid, uuid, integer, text, jsonb) from public;
+revoke execute on function public.accept_settlement(uuid, jsonb) from public;
+revoke execute on function public.confirm_settlement_transaction(uuid) from public;
 grant execute on function public.create_household(text) to authenticated;
 grant execute on function public.join_household(text) to authenticated;
 grant execute on function public.move_out_member(uuid, uuid) to authenticated;
 grant execute on function public.reclaim_member(uuid, uuid) to authenticated;
 grant execute on function public.create_expense(uuid, uuid, integer, text, jsonb) to authenticated;
+grant execute on function public.accept_settlement(uuid, jsonb) to authenticated;
+grant execute on function public.confirm_settlement_transaction(uuid) to authenticated;
 
 alter table public.users enable row level security;
 alter table public.households enable row level security;
@@ -441,6 +559,8 @@ alter table public.expenses enable row level security;
 alter table public.expense_splits enable row level security;
 alter table public.chore_templates enable row level security;
 alter table public.chore_logs enable row level security;
+alter table public.settlements enable row level security;
+alter table public.settlement_transactions enable row level security;
 
 create policy "Profiles are visible only to co-members"
   on public.users for select to authenticated
@@ -512,6 +632,14 @@ create policy "Active members can delete chore logs"
   on public.chore_logs for delete to authenticated
   using ((select private.can_edit_chore_log(id)));
 
+create policy "Members can read settlements"
+  on public.settlements for select to authenticated
+  using ((select private.is_household_member(household_id)));
+
+create policy "Members can read settlement transactions"
+  on public.settlement_transactions for select to authenticated
+  using ((select private.can_read_settlement_transaction(id)));
+
 grant usage on schema public to authenticated;
 grant select, update on public.users to authenticated;
 grant select, update on public.households to authenticated;
@@ -520,6 +648,8 @@ grant select on public.expenses to authenticated;
 grant select on public.expense_splits to authenticated;
 grant select, insert, update, delete on public.chore_templates to authenticated;
 grant select, insert, update, delete on public.chore_logs to authenticated;
+grant select on public.settlements to authenticated;
+grant select on public.settlement_transactions to authenticated;
 
 -- Postgres Changes is enough for the small MVP household graph; move to Broadcast before high-volume scale.
 alter publication supabase_realtime add table public.household_members;
@@ -527,3 +657,5 @@ alter publication supabase_realtime add table public.expenses;
 alter publication supabase_realtime add table public.expense_splits;
 alter publication supabase_realtime add table public.chore_templates;
 alter publication supabase_realtime add table public.chore_logs;
+alter publication supabase_realtime add table public.settlements;
+alter publication supabase_realtime add table public.settlement_transactions;

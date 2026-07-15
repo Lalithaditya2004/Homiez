@@ -15,6 +15,8 @@ export function subscribeToHouseholdChanges(householdId: string, onChange: () =>
     .on('postgres_changes', { event: '*', schema: 'public', table: 'chore_templates', filter: `household_id=eq.${householdId}` }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_splits' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'chore_logs' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'settlements', filter: `household_id=eq.${householdId}` }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'settlement_transactions' }, onChange)
     .subscribe();
 
   return () => {

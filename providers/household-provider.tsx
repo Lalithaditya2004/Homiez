@@ -1,8 +1,24 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createDebtDetoxPreview, getMemberBalances } from '@/lib/debt-detox';
 import { demoHousehold } from '@/lib/demo-data';
+import {
+  acceptCloudSettlement,
+  completeCloudChore,
+  confirmCloudSettlementPayment,
+  createCloudChore,
+  createCloudExpense,
+  createCloudHousehold,
+  deleteCloudChoreTemplate,
+  joinCloudHousehold,
+  loadCurrentCloudHousehold,
+  moveOutCloudMember,
+  reclaimCloudMember,
+  scheduleCloudChore,
+} from '@/lib/household-repository';
+import { subscribeToHouseholdChanges } from '@/lib/household-realtime';
+import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import type { ChoreLog, ExpenseDraft, HouseholdData } from '@/lib/types';
 
 const STORAGE_KEY = 'homiez-household-v1';
@@ -14,9 +30,14 @@ type CreateChoreInput = {
   dueDate?: string;
 };
 
+export type CloudState = 'demo' | 'loading' | 'signed-out' | 'needs-household' | 'synced' | 'error';
+
 type HouseholdContextValue = {
   data: HouseholdData;
   isReady: boolean;
+  cloudState: CloudState;
+  cloudError?: string;
+  isCloudBacked: boolean;
   activeMembers: HouseholdData['members'];
   archivedMembers: HouseholdData['members'];
   balances: ReturnType<typeof getMemberBalances>;
@@ -25,12 +46,16 @@ type HouseholdContextValue = {
   deletedChoreLogs: ChoreLog[];
   addExpense: (expense: ExpenseDraft) => void;
   acceptDebtPlan: () => void;
+  confirmSettlementPayment: (transactionId: string) => void;
   createChore: (input: CreateChoreInput) => void;
   scheduleChore: (templateId: string, assigneeId?: string, dueDate?: string) => void;
   completeChore: (logId: string) => void;
   deleteChoreTemplate: (templateId: string) => void;
   moveOutMember: (memberId: string) => void;
   reclaimMember: (memberId: string) => boolean;
+  createCloudHousehold: (name: string) => Promise<void>;
+  joinCloudHousehold: (joinCode: string) => Promise<void>;
+  refreshCloud: () => Promise<void>;
 };
 
 const HouseholdContext = createContext<HouseholdContextValue | null>(null);
@@ -42,6 +67,8 @@ function makeId(prefix: string): string {
 export function HouseholdProvider({ children }: React.PropsWithChildren) {
   const [data, setData] = useState<HouseholdData>(demoHousehold);
   const [isReady, setIsReady] = useState(false);
+  const [cloudState, setCloudState] = useState<CloudState>(hasSupabaseConfig ? 'loading' : 'demo');
+  const [cloudError, setCloudError] = useState<string>();
 
   useEffect(() => {
     async function restoreHousehold() {
@@ -63,6 +90,89 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
     void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }, [data, isReady]);
 
+  const refreshCloud = useCallback(async () => {
+    if (!supabase) {
+      setCloudState('demo');
+      return;
+    }
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setCloudState('signed-out');
+      return;
+    }
+
+    setCloudState('loading');
+    setCloudError(undefined);
+    try {
+      const cloudHousehold = await loadCurrentCloudHousehold();
+      if (!cloudHousehold) {
+        setCloudState('needs-household');
+        return;
+      }
+      setData(cloudHousehold);
+      setCloudState('synced');
+    } catch (error) {
+      setCloudError(error instanceof Error ? error.message : 'Could not load the shared household.');
+      setCloudState('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        void refreshCloud();
+      } else {
+        setCloudState('signed-out');
+      }
+    });
+    void refreshCloud();
+    return () => subscription.subscription.unsubscribe();
+  }, [refreshCloud]);
+
+  useEffect(() => {
+    if (cloudState !== 'synced') return;
+    return subscribeToHouseholdChanges(data.id, () => void refreshCloud());
+  }, [cloudState, data.id, refreshCloud]);
+
+  const queueCloudMutation = useCallback((mutation: () => Promise<void>) => {
+    if (cloudState !== 'synced') return;
+    void mutation()
+      .then(() => refreshCloud())
+      .catch((error: unknown) => {
+        setCloudError(error instanceof Error ? error.message : 'Could not sync this change.');
+      });
+  }, [cloudState, refreshCloud]);
+
+  const createConfiguredHousehold = useCallback(async (name: string) => {
+    setCloudState('loading');
+    setCloudError(undefined);
+    try {
+      await createCloudHousehold(name);
+      await refreshCloud();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not create this household.';
+      setCloudError(message);
+      setCloudState('error');
+      throw new Error(message);
+    }
+  }, [refreshCloud]);
+
+  const joinConfiguredHousehold = useCallback(async (joinCode: string) => {
+    setCloudState('loading');
+    setCloudError(undefined);
+    try {
+      await joinCloudHousehold(joinCode);
+      await refreshCloud();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not join this household.';
+      setCloudError(message);
+      setCloudState('error');
+      throw new Error(message);
+    }
+  }, [refreshCloud]);
+
   const activeMembers = useMemo(() => data.members.filter((member) => member.status === 'active'), [data.members]);
   const archivedMembers = useMemo(() => data.members.filter((member) => member.status === 'archived'), [data.members]);
   const balances = useMemo(() => getMemberBalances(data.expenses, data.members), [data.expenses, data.members]);
@@ -79,6 +189,9 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
   const value = useMemo<HouseholdContextValue>(() => ({
     data,
     isReady,
+    cloudState,
+    cloudError,
+    isCloudBacked: cloudState === 'synced',
     activeMembers,
     archivedMembers,
     balances,
@@ -101,6 +214,7 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
         ],
         settlement: undefined,
       }));
+      queueCloudMutation(() => createCloudExpense(data.id, expense));
     },
     acceptDebtPlan() {
       const latestPreview = createDebtDetoxPreview(data.expenses, data.members);
@@ -110,12 +224,31 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
           id: makeId('settlement'),
           acceptedAt: new Date().toISOString(),
           transactions: latestPreview.transactions.map((transaction) => ({
+            id: makeId('settlement-transaction'),
             fromId: transaction.fromId,
             toId: transaction.toId,
             amountCents: transaction.amountCents,
+            status: 'pending',
           })),
         },
       }));
+      queueCloudMutation(() => acceptCloudSettlement(data.id, latestPreview.transactions));
+    },
+    confirmSettlementPayment(transactionId) {
+      setData((current) => ({
+        ...current,
+        settlement: current.settlement
+          ? {
+              ...current.settlement,
+              transactions: current.settlement.transactions.map((transaction) =>
+                transaction.id === transactionId
+                  ? { ...transaction, status: 'confirmed', confirmedBy: current.currentUserId, confirmedAt: new Date().toISOString() }
+                  : transaction,
+              ),
+            }
+          : undefined,
+      }));
+      queueCloudMutation(() => confirmCloudSettlementPayment(transactionId));
     },
     createChore({ name, assigneeId, dueDate }) {
       const cleanName = name.trim();
@@ -133,6 +266,7 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
           ...current.choreLogs,
         ],
       }));
+      queueCloudMutation(() => createCloudChore(data.id, cleanName, assigneeId, dueDate));
     },
     scheduleChore(templateId, assigneeId, dueDate) {
       setData((current) => ({
@@ -142,6 +276,7 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
           ...current.choreLogs,
         ],
       }));
+      queueCloudMutation(() => scheduleCloudChore(templateId, assigneeId, dueDate));
     },
     completeChore(logId) {
       setData((current) => ({
@@ -152,6 +287,7 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
             : log,
         ),
       }));
+      queueCloudMutation(() => completeCloudChore(logId, data.currentUserId));
     },
     deleteChoreTemplate(templateId) {
       const deletedAt = new Date().toISOString();
@@ -164,6 +300,7 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
           log.choreTemplateId === templateId ? { ...log, deletedAt } : log,
         ),
       }));
+      queueCloudMutation(() => deleteCloudChoreTemplate(templateId));
     },
     moveOutMember(memberId) {
       if (memberId === data.currentUserId) return;
@@ -175,6 +312,7 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
             : member,
         ),
       }));
+      queueCloudMutation(() => moveOutCloudMember(data.id, memberId));
     },
     reclaimMember(memberId) {
       const member = data.members.find((candidate) => candidate.id === memberId);
@@ -185,9 +323,13 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
           candidate.id === memberId ? { ...candidate, status: 'active', movedOutBy: undefined, movedOutAt: undefined } : candidate,
         ),
       }));
+      queueCloudMutation(() => reclaimCloudMember(data.id, memberId));
       return true;
     },
-  }), [activeMembers, archivedMembers, balances, data, debtPreview, deletedChoreLogs, isReady, recentChoreLogs]);
+    createCloudHousehold: createConfiguredHousehold,
+    joinCloudHousehold: joinConfiguredHousehold,
+    refreshCloud,
+  }), [activeMembers, archivedMembers, balances, cloudError, cloudState, createConfiguredHousehold, data, debtPreview, deletedChoreLogs, isReady, joinConfiguredHousehold, queueCloudMutation, recentChoreLogs, refreshCloud]);
 
   return <HouseholdContext value={value}>{children}</HouseholdContext>;
 }

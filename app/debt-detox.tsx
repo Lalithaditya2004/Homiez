@@ -9,7 +9,7 @@ import { useHousehold } from '@/providers/household-provider';
 
 export default function DebtDetoxScreen() {
   const theme = useAppTheme();
-  const { data, debtPreview, acceptDebtPlan } = useHousehold();
+  const { data, debtPreview, acceptDebtPlan, confirmSettlementPayment } = useHousehold();
   const [showMath, setShowMath] = useState(false);
 
   function acceptPlan() {
@@ -47,6 +47,32 @@ export default function DebtDetoxScreen() {
           {data.settlement ? 'A plan is already saved. Running it again replaces that plan with the current ledger.' : 'No money moves here—this is the instruction set for payments made outside Homiez.'}
         </Text>
       </Card>
+
+      {data.settlement?.transactions.length ? (
+        <View style={{ gap: 10 }}>
+          <SectionTitle title="External payment confirmation" />
+          <Text selectable style={{ color: theme.muted, fontSize: 13, lineHeight: 18 }}>
+            Homiez never transfers money. The payer confirms once the real-world payment is made.
+          </Text>
+          {data.settlement.transactions.map((transaction) => {
+            const payer = data.members.find((member) => member.id === transaction.fromId);
+            const recipient = data.members.find((member) => member.id === transaction.toId);
+            const canConfirm = transaction.status === 'pending' && transaction.fromId === data.currentUserId;
+            return (
+              <Card key={transaction.id} style={{ padding: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <Text selectable style={{ color: theme.heading, fontSize: 16, fontWeight: '800' }}>{payer?.name ?? 'Roommate'} → {recipient?.name ?? 'Roommate'}</Text>
+                    <Text selectable style={{ color: theme.muted, fontSize: 13 }}>{formatMoney(transaction.amountCents)} · {transaction.status === 'confirmed' ? 'confirmed externally' : 'waiting for payer'}</Text>
+                  </View>
+                  <Pill tone={transaction.status === 'confirmed' ? 'positive' : 'pending'}>{transaction.status === 'confirmed' ? 'CONFIRMED' : 'PENDING'}</Pill>
+                </View>
+                {canConfirm ? <PrimaryButton label="Confirm external payment" onPress={() => confirmSettlementPayment(transaction.id)} /> : null}
+              </Card>
+            );
+          })}
+        </View>
+      ) : null}
 
       <View style={{ gap: 10 }}>
         <SectionTitle title="Net positions" />

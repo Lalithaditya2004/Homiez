@@ -47,9 +47,19 @@ export type ChoreLog = {
   createdAt: string;
 };
 
+export type SettlementTransaction = {
+  id: string;
+  fromId: string;
+  toId: string;
+  amountCents: number;
+  status: 'pending' | 'confirmed';
+  confirmedBy?: string;
+  confirmedAt?: string;
+};
+
 export type Settlement = {
   id: string;
-  transactions: { fromId: string; toId: string; amountCents: number }[];
+  transactions: SettlementTransaction[];
   acceptedAt: string;
 };
 

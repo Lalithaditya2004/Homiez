@@ -2,13 +2,38 @@ import { router } from 'expo-router';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { AppScreen, useAppTheme } from '@/components/app-screen';
-import { Avatar, Card, GhostButton, Pill, SectionTitle } from '@/components/homiez-ui';
+import { Avatar, Card, GhostButton, Pill, PrimaryButton, SectionTitle } from '@/components/homiez-ui';
 import { useHousehold } from '@/providers/household-provider';
 
 export default function HouseholdScreen() {
   const theme = useAppTheme();
-  const { data, activeMembers, archivedMembers, moveOutMember } = useHousehold();
+  const { data, activeMembers, archivedMembers, cloudError, cloudState, moveOutMember, refreshCloud } = useHousehold();
   const currentMember = data.members.find((member) => member.id === data.currentUserId)!;
+
+  if (cloudState !== 'demo' && cloudState !== 'synced') {
+    const needsSignIn = cloudState === 'signed-out';
+    const needsSetup = cloudState === 'needs-household';
+    const isLoading = cloudState === 'loading';
+    return (
+      <AppScreen>
+        <View style={{ gap: 4 }}>
+          <Text selectable style={{ color: theme.heading, fontSize: 30, fontWeight: '800', letterSpacing: -0.8 }}>Household</Text>
+          <Text selectable style={{ color: theme.muted, fontSize: 15 }}>Secure, shared data begins here.</Text>
+        </View>
+        <Card accent={cloudState === 'error' ? theme.moneyNegative : theme.pending}>
+          <Text selectable style={{ color: theme.heading, fontSize: 19, fontWeight: '800' }}>
+            {isLoading ? 'Loading your household…' : needsSignIn ? 'Sign in to sync your flat' : needsSetup ? 'Create or join a household' : 'Could not reach your household'}
+          </Text>
+          <Text selectable style={{ color: theme.body, fontSize: 14, lineHeight: 20 }}>
+            {isLoading ? 'Checking your Supabase session and household access.' : needsSignIn ? 'Your demo workspace remains available locally until you connect an email account.' : needsSetup ? 'You are signed in. Create a new flat or enter the code another roommate shared.' : cloudError ?? 'Try again to restore the secure cloud connection.'}
+          </Text>
+          {needsSignIn ? <PrimaryButton label="Open account" onPress={() => router.push('/auth' as never)} /> : null}
+          {needsSetup ? <PrimaryButton label="Set up household" onPress={() => router.push('/household-setup' as never)} /> : null}
+          {cloudState === 'error' ? <PrimaryButton label="Try again" onPress={() => void refreshCloud()} /> : null}
+        </Card>
+      </AppScreen>
+    );
+  }
 
   return (
     <AppScreen>

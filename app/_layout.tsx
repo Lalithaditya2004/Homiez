@@ -23,6 +23,7 @@ export default function RootLayout() {
           <Stack.Screen name="add-chore" options={{ presentation: 'formSheet', title: 'New chore', sheetGrabberVisible: true }} />
           <Stack.Screen name="chore-history" options={{ presentation: 'modal', title: 'Chore history' }} />
           <Stack.Screen name="archived-roommates" options={{ presentation: 'modal', title: 'Archived roommates' }} />
+          <Stack.Screen name="household-setup" options={{ presentation: 'formSheet', title: 'Set up household', sheetGrabberVisible: true }} />
           <Stack.Screen name="auth" options={{ presentation: 'modal', title: 'Account' }} />
         </Stack>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
