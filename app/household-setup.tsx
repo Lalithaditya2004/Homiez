@@ -3,90 +3,17 @@ import { useState } from 'react';
 import { Alert, Text, TextInput, View } from 'react-native';
 
 import { AppScreen, useAppTheme } from '@/components/app-screen';
-import { Card, PrimaryButton } from '@/components/homiez-ui';
+import { Callout, Card, EditorialHeader, Pill, PrimaryButton, Segmented } from '@/components/homiez-ui';
+import { typography } from '@/constants/design';
 import { hasSupabaseConfig } from '@/lib/supabase';
 import { useHousehold } from '@/providers/household-provider';
 
 export default function HouseholdSetupScreen() {
-  const theme = useAppTheme();
-  const { createCloudHousehold, joinCloudHousehold } = useHousehold();
-  const [name, setName] = useState('');
-  const [joinCode, setJoinCode] = useState('');
-  const [loading, setLoading] = useState<'create' | 'join' | null>(null);
-
-  async function createHousehold() {
-    if (!name.trim()) {
-      Alert.alert('Name your household first.');
-      return;
-    }
-    setLoading('create');
-    try {
-      await createCloudHousehold(name);
-      router.replace('/household' as never);
-    } catch (error) {
-      Alert.alert('Could not create household', error instanceof Error ? error.message : 'Please try again.');
-    } finally {
-      setLoading(null);
-    }
-  }
-
-  async function joinHousehold() {
-    if (!joinCode.trim()) {
-      Alert.alert('Enter the household join code.');
-      return;
-    }
-    setLoading('join');
-    try {
-      await joinCloudHousehold(joinCode);
-      router.replace('/household' as never);
-    } catch (error) {
-      Alert.alert('Could not join household', error instanceof Error ? error.message : 'Please check the code and try again.');
-    } finally {
-      setLoading(null);
-    }
-  }
-
-  return (
-    <AppScreen keyboardShouldPersistTaps="handled">
-      <View style={{ gap: 4 }}>
-        <Text selectable style={{ color: theme.heading, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 }}>Find your flat</Text>
-        <Text selectable style={{ color: theme.muted, fontSize: 15 }}>Create a household or join one with its shareable code.</Text>
-      </View>
-
-      {!hasSupabaseConfig ? (
-        <Card accent={theme.pending}>
-          <Text selectable style={{ color: theme.heading, fontSize: 17, fontWeight: '800' }}>Connect Supabase first</Text>
-          <Text selectable style={{ color: theme.body, fontSize: 14, lineHeight: 20 }}>Add the two EXPO_PUBLIC_SUPABASE variables in .env to enable secure cloud households.</Text>
-        </Card>
-      ) : (
-        <>
-          <Card>
-            <Text selectable style={{ color: theme.heading, fontSize: 18, fontWeight: '800' }}>Create a household</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="e.g. The Cedar Flat"
-              placeholderTextColor={theme.muted}
-              style={{ backgroundColor: theme.background, color: theme.heading, borderWidth: 1, borderColor: theme.border, borderRadius: 12, paddingHorizontal: 12, minHeight: 48, fontSize: 16 }}
-            />
-            <Text selectable style={{ color: theme.muted, fontSize: 13, lineHeight: 18 }}>Homiez creates a unique join code. Every active roommate can then share it.</Text>
-            <PrimaryButton label={loading === 'create' ? 'Creating…' : 'Create household'} disabled={loading !== null} onPress={() => void createHousehold()} />
-          </Card>
-
-          <Card accent={theme.chores}>
-            <Text selectable style={{ color: theme.heading, fontSize: 18, fontWeight: '800' }}>Join an existing household</Text>
-            <TextInput
-              value={joinCode}
-              onChangeText={setJoinCode}
-              placeholder="e.g. CEDAR-42"
-              placeholderTextColor={theme.muted}
-              autoCapitalize="characters"
-              style={{ backgroundColor: theme.background, color: theme.heading, borderWidth: 1, borderColor: theme.border, borderRadius: 12, paddingHorizontal: 12, minHeight: 48, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 }}
-            />
-            <PrimaryButton label={loading === 'join' ? 'Joining…' : 'Join household'} tone="chores" disabled={loading !== null} onPress={() => void joinHousehold()} />
-          </Card>
-        </>
-      )}
-    </AppScreen>
-  );
+  const theme = useAppTheme(); const { createCloudHousehold, joinCloudHousehold } = useHousehold(); const [mode, setMode] = useState<'create' | 'join'>('create'); const [name, setName] = useState(''); const [joinCode, setJoinCode] = useState(''); const [loading, setLoading] = useState(false);
+  async function submit() { const value = mode === 'create' ? name.trim() : joinCode.trim(); if (!value) return Alert.alert(mode === 'create' ? 'Name your household first.' : 'Enter the household join code.'); setLoading(true); try { if (mode === 'create') await createCloudHousehold(value); else await joinCloudHousehold(value); router.replace('/household' as never); } catch (error) { Alert.alert(mode === 'create' ? 'Could not create household' : 'Could not join household', error instanceof Error ? error.message : 'Please try again.'); } finally { setLoading(false); } }
+  const field = { backgroundColor: theme.background, color: theme.heading, borderRadius: 19, paddingHorizontal: 16, minHeight: 58, fontFamily: typography.medium, fontSize: 15, boxShadow: 'inset 4px 4px 11px rgba(0,0,0,.27)' } as const;
+  return <AppScreen keyboardShouldPersistTaps="handled"><EditorialHeader eyebrow="One flat, one ledger" title="Find your flat" description="Create the household from scratch or use the key another roommate shared." /><Segmented value={mode} onChange={(value) => setMode(value as typeof mode)} options={[{ value: 'create', label: 'Create new' }, { value: 'join', label: 'Join existing' }]} />
+    <Card accent={theme.accent}>{mode === 'create' ? <><Pill tone="pending">START FRESH</Pill><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 20 }}>Create a household</Text><View style={{ gap: 8 }}><Text style={{ color: theme.muted, fontFamily: typography.semibold, fontSize: 11 }}>HOUSEHOLD NAME</Text><TextInput accessibilityLabel="Household name" value={name} onChangeText={setName} placeholder="The Cedar Flat" placeholderTextColor={theme.faint} style={field} /></View><Text selectable style={{ color: theme.muted, fontSize: 11, lineHeight: 17 }}>Homiez creates a unique join code every active roommate can share.</Text><PrimaryButton label={loading ? 'Creating…' : 'Create household'} icon="home" disabled={loading || !hasSupabaseConfig} onPress={() => void submit()} /></> : <><Pill tone="subtle">USE A KEY</Pill><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 20 }}>Join an existing household</Text><View style={{ gap: 8 }}><Text style={{ color: theme.muted, fontFamily: typography.semibold, fontSize: 11 }}>JOIN CODE</Text><TextInput accessibilityLabel="Join code" value={joinCode} onChangeText={setJoinCode} placeholder="CEDAR-42" placeholderTextColor={theme.faint} autoCapitalize="characters" style={[field, { fontFamily: typography.extraBold, letterSpacing: 2 }]} /></View><Text selectable style={{ color: theme.muted, fontSize: 11, lineHeight: 17 }}>Enter the code shared by an active roommate to join their existing ledger.</Text><PrimaryButton label={loading ? 'Joining…' : 'Join household'} icon="key" disabled={loading || !hasSupabaseConfig} onPress={() => void submit()} /></>}</Card>
+    {!hasSupabaseConfig ? <Callout title="Cloud setup required">Add the two EXPO_PUBLIC_SUPABASE values from .env.example to create or join a live household. The local demo remains available.</Callout> : null}
+  </AppScreen>;
 }

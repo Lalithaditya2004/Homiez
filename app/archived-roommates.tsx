@@ -1,50 +1,9 @@
 import { router } from 'expo-router';
 import { Alert, Text, View } from 'react-native';
-
 import { AppScreen, useAppTheme } from '@/components/app-screen';
-import { Avatar, Card, Pill, PrimaryButton } from '@/components/homiez-ui';
+import { Avatar, Callout, Card, EditorialHeader, Pill, PrimaryButton, SectionTitle } from '@/components/homiez-ui';
+import { typography } from '@/constants/design';
 import { formatDateTime } from '@/lib/money';
 import { useHousehold } from '@/providers/household-provider';
 
-export default function ArchivedRoommatesScreen() {
-  const theme = useAppTheme();
-  const { data, archivedMembers, reclaimMember } = useHousehold();
-
-  return (
-    <AppScreen>
-      <View style={{ gap: 4 }}>
-        <Text selectable style={{ color: theme.heading, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 }}>Archived roommates</Text>
-        <Text selectable style={{ color: theme.muted, fontSize: 15 }}>Frozen from new expenses, never silently erased.</Text>
-      </View>
-
-      {archivedMembers.length ? archivedMembers.map((member) => {
-        const mover = data.members.find((candidate) => candidate.id === member.movedOutBy);
-        const canUndo = member.movedOutBy === data.currentUserId;
-        return (
-          <Card key={member.id} accent={theme.moneyNegative}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Avatar name={member.name} color={theme.moneyNegativeTint} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text selectable style={{ color: theme.heading, fontSize: 17, fontWeight: '800' }}>{member.name}</Text>
-                <Text selectable style={{ color: theme.muted, fontSize: 13 }}>Moved out {formatDateTime(member.movedOutAt)}</Text>
-              </View>
-              <Pill tone="negative">FROZEN</Pill>
-            </View>
-            <Text selectable style={{ color: theme.body, fontSize: 14, lineHeight: 20 }}>
-              {canUndo ? 'You initiated this move-out, so you can reclaim it immediately.' : `${mover?.name ?? 'Another roommate'} initiated this move-out. Only they can undo it.`}
-            </Text>
-            {canUndo ? (
-              <PrimaryButton label="Reclaim / undo move-out" onPress={() => {
-                if (reclaimMember(member.id)) {
-                  Alert.alert(`${member.name} is active again.`, 'They can immediately participate in new expenses and chores.', [{ text: 'Done', onPress: () => router.back() }]);
-                }
-              }} />
-            ) : null}
-          </Card>
-        );
-      }) : (
-        <Card><Text selectable style={{ color: theme.muted }}>No archived roommates.</Text></Card>
-      )}
-    </AppScreen>
-  );
-}
+export default function ArchivedRoommatesScreen() { const theme = useAppTheme(); const { data, archivedMembers, reclaimMember } = useHousehold(); return <AppScreen><EditorialHeader eyebrow="Reversible by design" title="Nobody is silently erased." description="Archived roommates freeze from new activity. The initiator keeps the undo key." />{archivedMembers.length ? archivedMembers.map((member) => { const mover = data.members.find((item) => item.id === member.movedOutBy); const canUndo = member.movedOutBy === data.currentUserId; return <Card key={member.id} accent={theme.accent} variant="elevated"><View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Avatar name={member.name} /><View style={{ flex: 1 }}><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 19 }}>{member.name}</Text><Text selectable style={{ color: theme.muted, fontSize: 11, marginTop: 4 }}>Moved out {formatDateTime(member.movedOutAt)}</Text></View><Pill tone="pending">FROZEN</Pill></View><Callout title={canUndo ? 'You hold the undo key.' : `${mover?.name ?? 'Another roommate'} holds the undo key.`}>{canUndo ? `${member.name} can be restored immediately.` : 'Only the roommate who initiated this move-out can reverse it.'}</Callout>{canUndo ? <PrimaryButton label="Reclaim roommate" icon="undo" onPress={() => { if (reclaimMember(member.id)) Alert.alert(`${member.name} is active again.`, 'They can participate in new expenses and chores.', [{ text: 'Done', onPress: () => router.back() }]); }} /> : null}</Card>; }) : <Card><Text selectable style={{ color: theme.muted }}>No archived roommates. Everyone is still home.</Text></Card>}<View style={{ gap: 12 }}><SectionTitle title="What remains frozen" /><View style={{ flexDirection: 'row' }}>{[['NEW EXPENSES','Off'],['NEW CHORES','Off'],['HISTORY','Safe']].map(([label,value],index) => <View key={label} style={{ flex: 1, paddingLeft: index ? 13 : 0, boxShadow: index ? 'inset 1px 0 rgba(255,255,255,.055)' : undefined }}><Text style={{ color: theme.faint, fontFamily: typography.bold, fontSize: 9 }}>{label}</Text><Text selectable style={{ color: value === 'Safe' ? theme.accent : theme.heading, fontFamily: typography.semibold, fontSize: 20, marginTop: 10 }}>{value}</Text></View>)}</View></View><Card variant="inset"><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold }}>History stays intact</Text><Text selectable style={{ color: theme.muted, fontSize: 11, lineHeight: 17 }}>Past expenses, balances, and completed chores remain visible in the audit trail.</Text></Card></AppScreen>; }

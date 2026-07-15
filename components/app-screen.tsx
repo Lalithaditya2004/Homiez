@@ -12,12 +12,11 @@ export function useAppTheme() {
 
 export function AppScreen({ children, contentContainerStyle, ...props }: AppScreenProps) {
   const theme = useAppTheme();
-
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={[{ padding: 16, paddingBottom: 40, gap: 16 }, contentContainerStyle]}
+      contentContainerStyle={[{ width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 48, gap: 22 }, contentContainerStyle]}
       showsVerticalScrollIndicator={false}
       {...props}>
       {children}

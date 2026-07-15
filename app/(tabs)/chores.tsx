@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { AppScreen, useAppTheme } from '@/components/app-screen';
-import { Avatar, Card, GhostButton, Pill, PrimaryButton, SectionTitle } from '@/components/homiez-ui';
+import { Avatar, Callout, Card, EditorialHeader, FloatingAction, GhostButton, Pill, PrimaryButton, SectionTitle } from '@/components/homiez-ui';
+import { typography } from '@/constants/design';
 import { formatDate } from '@/lib/money';
 import { useHousehold } from '@/providers/household-provider';
 
@@ -10,75 +11,20 @@ export default function ChoresScreen() {
   const theme = useAppTheme();
   const { data, activeMembers, recentChoreLogs, completeChore, deleteChoreTemplate, scheduleChore } = useHousehold();
   const templates = data.choreTemplates.filter((template) => !template.isDeleted);
-  const pendingLogs = recentChoreLogs.filter((log) => log.status === 'pending');
-
-  function scheduleForTomorrow(templateId: string) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    scheduleChore(templateId, data.currentUserId, tomorrow.toISOString());
-  }
+  const pending = recentChoreLogs.filter((log) => log.status === 'pending');
+  const completed = recentChoreLogs.filter((log) => log.status === 'completed');
+  const week = Array.from({ length: 7 }, (_, index) => { const date = new Date(); date.setHours(12, 0, 0, 0); date.setDate(date.getDate() + index); return { date, today: index === 0 }; });
+  function scheduleTomorrow(templateId: string) { const date = new Date(); date.setDate(date.getDate() + 1); scheduleChore(templateId, data.currentUserId, date.toISOString()); }
 
   return (
-    <AppScreen>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <View style={{ gap: 4 }}>
-          <Text selectable style={{ color: theme.heading, fontSize: 30, fontWeight: '800', letterSpacing: -0.8 }}>Chores</Text>
-          <Text selectable style={{ color: theme.muted, fontSize: 15 }}>Shared upkeep, no nagging required.</Text>
-        </View>
-        <Pressable accessibilityRole="button" onPress={() => router.push('/add-chore' as never)} style={({ pressed }) => ({ backgroundColor: theme.chores, borderRadius: 14, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}>
-          <Text selectable style={{ color: '#FFF', fontSize: 28, fontWeight: '500', marginTop: -2 }}>+</Text>
-        </Pressable>
-      </View>
+    <AppScreen contentContainerStyle={{ paddingBottom: 118 }}>
+      <EditorialHeader eyebrow="The care layer" title="Chores" description="A visible rhythm for the invisible work that keeps a home feeling good." trailing={<FloatingAction label="New chore" onPress={() => router.push('/add-chore' as never)} />} />
+      <Card accent={theme.accent} variant="elevated"><Pill tone="positive">JULY ACTIVITY</Pill><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 21 }}>Chore activity this month</Text><Text selectable style={{ color: theme.muted, fontSize: 11 }}>A plain summary of scheduled work across the household.</Text><View style={{ flexDirection: 'row', marginTop: 4 }}><View style={{ flex: 1 }}><Text selectable style={{ color: theme.faint, fontFamily: typography.bold, fontSize: 9 }}>COMPLETED</Text><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 20, marginTop: 10 }}>{completed.length} chores</Text></View><View style={{ flex: 1, paddingLeft: 14, boxShadow: 'inset 1px 0 rgba(255,255,255,.055)' }}><Text selectable style={{ color: theme.faint, fontFamily: typography.bold, fontSize: 9 }}>PENDING</Text><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 20, marginTop: 10 }}>{pending.length} chores</Text></View></View><PrimaryButton label="Review 30-day history" tone="dark" icon="history" onPress={() => router.push('/chore-history' as never)} /></Card>
 
-      <Card accent={theme.chores}>
-        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: theme.choresTint, alignItems: 'center', justifyContent: 'center' }}>
-            <Text selectable style={{ color: theme.chores, fontSize: 18, fontWeight: '800' }}>✓</Text>
-          </View>
-          <View style={{ flex: 1, gap: 3 }}>
-            <Text selectable style={{ color: theme.heading, fontSize: 17, fontWeight: '800' }}>{pendingLogs.length} chore{pendingLogs.length === 1 ? '' : 's'} in the queue</Text>
-            <Text selectable style={{ color: theme.body, fontSize: 14 }}>Tap completion when the task is actually done.</Text>
-          </View>
-        </View>
-      </Card>
+      <View style={{ gap: 12 }}><SectionTitle title="The next seven days" action={`${pending.length} in motion`} /><Card><View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 5 }}>{week.map(({ date, today }) => <View key={date.toISOString()} style={{ flex: 1, alignItems: 'center', gap: 6 }}><Text selectable style={{ color: today ? theme.accent : theme.faint, fontFamily: typography.bold, fontSize: 9 }}>{date.toLocaleDateString('en-US', { weekday: 'narrow' }).toUpperCase()}</Text><View style={{ width: '100%', maxWidth: 38, height: 47, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: today ? theme.accent : theme.cardStrong, boxShadow: today ? '0 8px 18px rgba(255,64,0,.2)' : '0 6px 14px rgba(0,0,0,.16)' }}><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 14 }}>{date.getDate()}</Text></View></View>)}</View></Card></View>
 
-      <View style={{ gap: 10 }}>
-        <SectionTitle title="Reusable chores" action="30-day history" onPress={() => router.push('/chore-history' as never)} />
-        {templates.map((template) => {
-          const nextLog = pendingLogs.filter((log) => log.choreTemplateId === template.id).sort((left, right) => (left.dueDate ?? '').localeCompare(right.dueDate ?? ''))[0];
-          const assignee = activeMembers.find((member) => member.id === nextLog?.assignedTo);
-          return (
-            <Card key={template.id} accent={theme.chores}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Avatar name={template.name} color={theme.choresTint} />
-                <View style={{ flex: 1, gap: 3 }}>
-                  <Text selectable style={{ color: theme.heading, fontSize: 17, fontWeight: '800' }}>{template.name}</Text>
-                  <Text selectable style={{ color: theme.muted, fontSize: 14 }}>
-                    {nextLog ? `${assignee?.name ?? 'Unassigned'} · due ${formatDate(nextLog.dueDate)}` : 'Nothing scheduled'}
-                  </Text>
-                </View>
-                {nextLog ? <Pill tone="chores">DUE</Pill> : <Pill tone="neutral">CLEAR</Pill>}
-              </View>
-              {nextLog ? (
-                <PrimaryButton label="Mark complete" tone="chores" onPress={() => completeChore(nextLog.id)} />
-              ) : (
-                <PrimaryButton label="Schedule for tomorrow" tone="chores" onPress={() => scheduleForTomorrow(template.id)} />
-              )}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
-                <GhostButton label="View history" onPress={() => router.push({ pathname: '/chore-history', params: { templateId: template.id } } as never)} />
-                <GhostButton label="Remove" color={theme.slacker} onPress={() => Alert.alert(
-                  `Remove ${template.name}?`,
-                  'The template and its logs will move to Deleted chores for 30 days.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Remove', style: 'destructive', onPress: () => deleteChoreTemplate(template.id) },
-                  ],
-                )} />
-              </View>
-            </Card>
-          );
-        })}
-      </View>
+      <View style={{ gap: 12 }}><SectionTitle title="Reusable rituals" action="History" onPress={() => router.push('/chore-history' as never)} />{templates.map((template, index) => { const log = pending.filter((item) => item.choreTemplateId === template.id).sort((a,b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))[0]; const assignee = activeMembers.find((item) => item.id === log?.assignedTo); return <Card key={template.id} accent={log && index === 0 ? theme.accent : undefined}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Avatar name={assignee?.name ?? '?'} active={Boolean(log)} /><View style={{ flex: 1 }}><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 18 }}>{template.name}</Text><Text selectable style={{ color: theme.muted, fontSize: 11, marginTop: 4 }}>{log ? `${assignee?.name ?? 'Unassigned'} · due ${formatDate(log.dueDate)}` : 'The slate is clean'}</Text></View><Pill tone={log ? 'positive' : 'subtle'}>{log ? 'DUE' : 'CLEAR'}</Pill></View><PrimaryButton label={log ? 'Mark complete' : 'Put it on tomorrow'} tone={index === 0 ? 'accent' : 'dark'} icon="check" onPress={() => log ? completeChore(log.id) : scheduleTomorrow(template.id)} /><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><GhostButton label="Trace history" onPress={() => router.push({ pathname: '/chore-history', params: { templateId: template.id } } as never)} /><GhostButton label="Remove" color={theme.muted} onPress={() => Alert.alert(`Remove ${template.name}?`, 'The template and its logs stay recoverable for 30 days.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => deleteChoreTemplate(template.id) }])} /></View></Card>; })}</View>
+      <Pressable onPress={() => router.push('/add-chore' as never)}><Callout title="Give another task a home.">Create a reusable chore that can be scheduled again without rebuilding the details.</Callout></Pressable>
     </AppScreen>
   );
 }

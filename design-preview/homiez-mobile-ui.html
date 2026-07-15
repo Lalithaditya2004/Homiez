@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Homiez — Mobile UI Design Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <style>
+    :root {
+      --bg: #201E1F;
+      --surface: #2A2729;
+      --surface-2: #353133;
+      --surface-3: #3C383A;
+      --stroke: rgba(255, 64, 0, 0.06);
+      --text: #F3F3F3;
+      --muted: #A1A1A1;
+      --faint: #6F6F6F;
+      --accent: #FF4000;
+      --blue: #2F7CF6;
+      --yellow: #F4B400;
+      --pink: #FF2D7A;
+      --dot: #BDBDBD;
+      --shadow: rgba(0, 0, 0, .42);
+      --font: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: #171516;
+      color: var(--text);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus { outline: none; }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .gallery-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 20px 28px;
+      background: rgba(23, 21, 22, .95);
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      backdrop-filter: blur(14px);
+    }
+    .gallery-brand { display: flex; align-items: center; gap: 12px; }
+    .gallery-brand img { width: 38px; height: 38px; border-radius: 11px; }
+    .gallery-brand strong { display: block; font-size: 15px; letter-spacing: -.2px; }
+    .gallery-brand span { display: block; margin-top: 3px; color: var(--faint); font-size: 11px; }
+    .route-count {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 7px 18px rgba(0,0,0,.22);
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(422px, 1fr));
+      gap: 54px 32px;
+      max-width: 1490px;
+      margin: 0 auto;
+      padding: 46px 28px 90px;
+    }
+    .screen-wrap { min-width: 0; }
+    .screen-label {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      width: 422px;
+      max-width: 100%;
+      margin: 0 auto 12px;
+      padding: 0 8px;
+    }
+    .screen-label strong { font-size: 13px; font-weight: 700; }
+    .screen-label code { color: var(--faint); font: 10px/1.2 var(--font); }
+
+    .phone {
+      position: relative;
+      width: 422px;
+      max-width: 100%;
+      height: 894px;
+      margin: 0 auto;
+      padding: 10px;
+      border-radius: 54px;
+      background: #090909;
+      box-shadow: 0 42px 90px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.14), inset 0 0 0 3px rgba(255,255,255,.025);
+    }
+    .phone::before,
+    .phone::after {
+      content: "";
+      position: absolute;
+      left: -3px;
+      width: 3px;
+      border-radius: 3px 0 0 3px;
+      background: #3b393a;
+    }
+    .phone::before { top: 146px; height: 64px; }
+    .phone::after { top: 224px; height: 42px; }
+    .phone-screen {
+      position: relative;
+      height: 100%;
+      overflow: hidden;
+      border-radius: 45px;
+      background: var(--bg);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.025);
+    }
+    .dynamic-island {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      z-index: 10;
+      width: 116px;
+      height: 31px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: #050505;
+    }
+    .statusbar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 52px;
+      padding: 0 24px 0 25px;
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .status-icons { display: flex; align-items: center; gap: 6px; }
+    .status-icons svg { width: 13px; height: 13px; stroke-width: 2.2; }
+
+    .screen-content {
+      position: absolute;
+      inset: 0;
+      overflow-y: auto;
+      padding: 65px 20px 116px;
+      scrollbar-width: none;
+    }
+    .screen-content::-webkit-scrollbar { display: none; }
+    .screen-content.modal { padding-bottom: 38px; }
+    .content-stack > * + * { margin-top: 22px; }
+    .tight-stack > * + * { margin-top: 10px; }
+
+    .topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .brand-lockup { display: flex; align-items: center; gap: 9px; }
+    .brand-lockup img { width: 34px; height: 34px; border-radius: 10px; filter: saturate(.18) contrast(1.02); }
+    .brand-lockup span { font-size: 16px; font-weight: 800; letter-spacing: -.55px; }
+    .sync-pill, .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      width: fit-content;
+      min-height: 28px;
+      padding: 0 11px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .25px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035), inset 0 -1px 0 rgba(0,0,0,.24);
+    }
+    .sync-pill::before, .pill::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(255,64,0,.10);
+    }
+    .pill.subtle::before { background: var(--dot); box-shadow: none; }
+    .pill.warn { color: var(--accent); background: rgba(255,64,0,.08); }
+
+    .eyebrow { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .headline { margin-top: 8px; font-size: 35px; line-height: 1.08; letter-spacing: -1.35px; font-weight: 650; }
+    .headline.small { font-size: 32px; }
+    .subtitle { margin-top: 9px; max-width: 330px; color: var(--muted); font-size: 14px; line-height: 1.52; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .section-title { font-size: 15px; font-weight: 650; letter-spacing: -.2px; }
+    .section-action { color: var(--accent); font-size: 11px; font-weight: 700; }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      padding: 17px;
+      border-radius: 21px;
+      background: var(--surface);
+      box-shadow: 13px 16px 34px rgba(0,0,0,.24), -6px -6px 18px rgba(255,255,255,.018), inset 0 1px 0 rgba(255,255,255,.035), inset 0 -1px 0 rgba(0,0,0,.28);
+    }
+    .card.elevated { background: var(--surface-2); }
+    .card.inset { box-shadow: inset 5px 5px 14px rgba(0,0,0,.28), inset -5px -5px 12px rgba(255,255,255,.018); }
+    .card.accent-edge::after {
+      content: "";
+      position: absolute;
+      top: 22px;
+      right: 0;
+      width: 3px;
+      height: 38px;
+      border-radius: 3px 0 0 3px;
+      background: var(--accent);
+    }
+
+    .balance-hero { padding: 20px; background: var(--surface-2); }
+    .balance-label { color: var(--muted); font-size: 11px; font-weight: 650; }
+    .balance-value { margin-top: 9px; font-size: 52px; line-height: 1; letter-spacing: -2.2px; font-weight: 780; font-variant-numeric: tabular-nums; }
+    .balance-value .currency { margin-right: 3px; color: var(--muted); font-size: 26px; vertical-align: 14px; }
+    .accent-text { color: var(--accent); }
+    .metric-note { margin-top: 9px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+    .primary-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      min-height: 56px;
+      margin-top: 18px;
+      padding: 0 10px 0 19px;
+      border: 0;
+      border-radius: 19px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 650;
+      box-shadow: 0 12px 28px rgba(255,64,0,.16), inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 0 rgba(100,20,0,.28);
+    }
+    .primary-btn.dark { background: var(--surface-3); box-shadow: 0 12px 28px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.045); }
+    .primary-btn .button-icon {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 13px;
+      background: rgba(255,255,255,.14);
+    }
+    .primary-btn svg { width: 18px; height: 18px; stroke-width: 2; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+    .stat { min-width: 0; padding: 14px 12px; border-radius: 17px; background: var(--surface); box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 10px 24px rgba(0,0,0,.2); }
+    .stat span { display: block; color: var(--faint); font-size: 9px; font-weight: 700; }
+    .stat strong { display: block; margin-top: 11px; font-size: 22px; font-weight: 680; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .stat .avatar { display: grid; color: var(--text); font-size: 12px; font-weight: 750; }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .row.between { justify-content: space-between; }
+    .grow { flex: 1; min-width: 0; }
+    .item-title { font-size: 14px; font-weight: 650; }
+    .item-sub { margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .metric { font-size: 20px; font-weight: 680; font-variant-numeric: tabular-nums; }
+    .tiny-link { color: var(--accent); font-size: 10px; font-weight: 750; }
+
+    .avatar {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      border-radius: 50%;
+      background: var(--surface-3);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 750;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 6px 13px rgba(0,0,0,.23);
+    }
+    .avatar.active { box-shadow: inset 0 0 0 2px var(--accent), 0 6px 13px rgba(0,0,0,.23); }
+    .avatar-stack { display: flex; }
+    .avatar-stack .avatar { margin-left: -9px; box-shadow: 0 0 0 3px var(--surface), 0 6px 13px rgba(0,0,0,.23); }
+    .avatar-stack .avatar:first-child { margin-left: 0; }
+
+    .list { display: grid; gap: 10px; }
+    .list-row { padding: 14px; border-radius: 18px; background: var(--surface); box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 10px 24px rgba(0,0,0,.19); }
+    .amount { color: var(--text); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .amount.positive { color: var(--accent); }
+    .balance-track { position: relative; height: 10px; border-radius: 999px; background: var(--bg); box-shadow: inset 2px 2px 6px rgba(0,0,0,.4); overflow: hidden; }
+    .balance-track span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+
+    .floating-action {
+      display: grid;
+      place-items: center;
+      width: 50px;
+      height: 50px;
+      flex: 0 0 50px;
+      border: 0;
+      border-radius: 18px;
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 12px 25px rgba(255,64,0,.18), inset 0 1px 0 rgba(255,255,255,.2);
+    }
+    .floating-action svg { width: 22px; height: 22px; }
+
+    .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 5px; border-radius: 18px; background: var(--surface); box-shadow: inset 4px 4px 10px rgba(0,0,0,.24); }
+    .segment { min-height: 42px; border: 0; border-radius: 14px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 650; }
+    .segment.active { background: var(--surface-2); color: var(--text); box-shadow: 0 5px 14px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.045); }
+
+    .field-group label { display: block; margin: 0 0 8px 3px; color: var(--muted); font-size: 11px; font-weight: 650; }
+    .field {
+      width: 100%;
+      height: 58px;
+      padding: 0 16px;
+      border: 0;
+      outline: 0;
+      border-radius: 19px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 15px;
+      box-shadow: inset 4px 4px 11px rgba(0,0,0,.27), inset -3px -3px 9px rgba(255,255,255,.018);
+    }
+    .field::placeholder { color: var(--faint); }
+    .money-field { display: flex; align-items: center; height: 82px; padding: 0 18px; border-radius: 24px; background: var(--surface-2); box-shadow: inset 5px 5px 13px rgba(0,0,0,.24), 0 14px 30px rgba(0,0,0,.2); }
+    .money-field span { color: var(--muted); font-size: 28px; }
+    .money-field input { flex: 1; min-width: 0; height: 100%; padding: 0 10px; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 42px; font-weight: 760; letter-spacing: -1.6px; }
+    .choice-row { display: flex; align-items: center; gap: 11px; padding: 12px; border-radius: 17px; background: var(--surface); box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 8px 18px rgba(0,0,0,.18); }
+    .choice-row.selected { background: var(--surface-2); box-shadow: inset 0 0 0 1px rgba(255,64,0,.24), 0 8px 18px rgba(0,0,0,.18); }
+    .radio { display: grid; place-items: center; width: 22px; height: 22px; margin-left: auto; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--faint); }
+    .selected .radio { box-shadow: inset 0 0 0 2px var(--accent); }
+    .selected .radio::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+
+    .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .day { display: grid; justify-items: center; gap: 6px; color: var(--faint); font-size: 9px; font-weight: 700; }
+    .date { display: grid; place-items: center; width: 38px; height: 47px; border-radius: 14px; background: var(--surface); color: var(--text); font-size: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 6px 14px rgba(0,0,0,.16); }
+    .day.today { color: var(--accent); }
+    .day.today .date { background: var(--accent); color: #fff; box-shadow: 0 8px 18px rgba(255,64,0,.2); }
+
+    .route-map { display: flex; align-items: center; gap: 7px; padding: 12px; border-radius: 19px; background: var(--bg); box-shadow: inset 4px 4px 10px rgba(0,0,0,.3); }
+    .route-node { width: 10px; height: 10px; border-radius: 50%; background: var(--surface-3); box-shadow: 0 0 0 4px rgba(255,255,255,.025); }
+    .route-node.hot { background: var(--accent); box-shadow: 0 0 0 4px rgba(255,64,0,.12); }
+    .route-line { width: 25px; height: 2px; border-radius: 2px; background: var(--faint); }
+
+    .join-code { display: flex; align-items: center; justify-content: space-between; margin-top: 15px; padding: 14px 16px; border-radius: 18px; background: var(--bg); font-size: 21px; font-weight: 750; letter-spacing: 2.5px; box-shadow: inset 4px 4px 10px rgba(0,0,0,.3); }
+    .join-code svg { color: var(--accent); width: 19px; }
+
+    .tabbar {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 12px;
+      z-index: 7;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      height: 74px;
+      padding: 7px;
+      border-radius: 27px;
+      background: var(--surface-2);
+      box-shadow: 0 16px 40px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.04);
+    }
+    .tab { display: grid; place-items: center; align-content: center; gap: 4px; border-radius: 20px; color: var(--faint); font-size: 10px; font-weight: 650; }
+    .tab.active { background: var(--surface); color: var(--text); box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 5px 12px rgba(0,0,0,.22); }
+    .tab.active svg { color: var(--accent); }
+    .tab svg { width: 21px; height: 21px; stroke-width: 1.9; }
+
+    .modal-handle { width: 42px; height: 5px; margin: 0 auto 19px; border-radius: 999px; background: var(--surface-3); }
+    .modal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 19px; }
+    .modal-nav button { display: grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 14px; background: var(--surface); color: var(--text); box-shadow: 0 7px 18px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.035); }
+    .modal-nav strong { font-size: 14px; }
+    .modal-nav svg { width: 18px; }
+
+    .allocation { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; align-items: end; height: 96px; padding: 13px 14px; border-radius: 21px; background: var(--surface); box-shadow: inset 4px 4px 11px rgba(0,0,0,.26); }
+    .allocation div { display: grid; align-content: end; gap: 7px; height: 100%; }
+    .allocation b { display: block; border-radius: 999px; background: var(--accent); opacity: .72; }
+    .allocation small { color: var(--faint); text-align: center; font-size: 8px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 12px; color: var(--muted); font-size: 9px; }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+    .legend i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+    .legend span:nth-child(2) i { background: var(--yellow); }
+    .legend span:nth-child(3) i { background: var(--pink); }
+    .legend span:nth-child(4) i { background: var(--dot); }
+
+    .callout { padding: 16px; border-radius: 19px; background: rgba(255,64,0,.07); color: var(--muted); font-size: 12px; line-height: 1.5; box-shadow: inset 0 0 0 1px var(--stroke); }
+    .callout strong { display: block; margin-bottom: 5px; color: var(--accent); font-size: 13px; }
+
+    .frozen-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; padding: 3px 2px 0; }
+    .frozen-item { min-width: 0; padding: 3px 13px 2px 0; }
+    .frozen-item + .frozen-item { padding-left: 13px; box-shadow: inset 1px 0 rgba(255,255,255,.055); }
+    .frozen-label { display: flex; align-items: center; gap: 6px; color: var(--faint); font-size: 9px; font-weight: 700; line-height: 1.3; }
+    .frozen-label svg { width: 13px; height: 13px; flex: 0 0 13px; color: var(--accent); stroke-width: 2; }
+    .frozen-item strong { display: block; margin-top: 10px; font-size: 20px; font-weight: 680; white-space: nowrap; }
+    .frozen-summary.two-col { grid-template-columns: repeat(2, 1fr); }
+    .compact-note { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; font-weight: 600; }
+
+    .spend-footer { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; margin-top: 20px; padding-top: 16px; box-shadow: inset 0 1px rgba(255,255,255,.055); }
+    .spend-footer > div { min-width: 0; }
+    .spend-footer > div + div { padding-left: 16px; box-shadow: inset 1px 0 rgba(255,255,255,.055); }
+    .spend-footer strong { display: block; font-size: 16px; font-weight: 680; }
+    .spend-footer span { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+
+    .setup-panel[hidden] { display: none; }
+
+    @media (max-width: 520px) {
+      .gallery-header { padding: 16px 18px; }
+      .route-count { display: none; }
+      .gallery { display: block; padding: 30px 10px 70px; }
+      .screen-wrap + .screen-wrap { margin-top: 52px; }
+      .phone { height: 850px; border-radius: 46px; }
+      .phone-screen { border-radius: 38px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="gallery-header">
+    <div class="gallery-brand">
+      <img src="../assets/brand/homiez-mark.svg" alt="Homiez logo" />
+      <div><strong>Homiez visual overhaul</strong><span>Standalone mobile review board · production code untouched</span></div>
+    </div>
+    <span class="route-count">11 screens · 390 × 844 content viewport</span>
+  </header>
+
+  <main class="gallery">
+    <!-- 01 HOME -->
+    <section class="screen-wrap" id="home">
+      <div class="screen-label"><strong>01 · Home</strong><code>/(tabs)/index</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div>
+        <div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content content-stack">
+          <div class="topline"><div class="brand-lockup"><img src="../assets/brand/homiez-mark.svg" alt="" /><span>homiez</span></div><span class="sync-pill">LOCAL LEDGER</span></div>
+          <header><div class="eyebrow">The Cedar Flat</div><h1 class="headline">Good evening,<br />Aditya.</h1><p class="subtitle">Money and chores, translated into one calm source of truth.</p></header>
+          <section class="card balance-hero accent-edge">
+            <span class="pill">YOU ARE OWED</span><div class="balance-value"><span class="currency">$</span>16.40</div><div class="metric-note">Your position across the household</div>
+            <button class="primary-btn"><span>Log a new expense</span><span class="button-icon"><i data-lucide="plus"></i></span></button>
+          </section>
+          <section><div class="section-head"><span class="section-title">Untangle the IOUs</span><span class="section-action">See math</span></div><div class="card elevated accent-edge"><div class="row between"><div class="grow"><div class="item-title" style="font-size:20px">Debt Detox</div><div class="item-sub">Turn overlapping IOUs into the fewest direct payments.</div></div><div class="route-map"><i class="route-node hot"></i><i class="route-line"></i><i class="route-node"></i></div></div></div></section>
+          <section><div class="section-head"><span class="section-title">What the flat needs</span><span class="section-action">All chores</span></div><div class="list"><div class="list-row row"><span class="avatar active">M</span><div class="grow"><div class="item-title">Clean kitchen</div><div class="item-sub">Maya · due today</div></div><i data-lucide="arrow-up-right" class="accent-text"></i></div><div class="list-row row"><span class="avatar">L</span><div class="grow"><div class="item-title">Take out recycling</div><div class="item-sub">Leo · tomorrow</div></div><i data-lucide="arrow-up-right" class="accent-text"></i></div></div></section>
+        </div>
+        <nav class="tabbar"><div class="tab active"><i data-lucide="house"></i><span>Home</span></div><div class="tab"><i data-lucide="notebook-tabs"></i><span>Ledger</span></div><div class="tab"><i data-lucide="list-checks"></i><span>Chores</span></div><div class="tab"><i data-lucide="users"></i><span>Household</span></div></nav>
+      </div></div>
+    </section>
+
+    <!-- 02 LEDGER -->
+    <section class="screen-wrap" id="ledger">
+      <div class="screen-label"><strong>02 · Ledger</strong><code>/(tabs)/ledger</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div><div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content content-stack">
+          <header><div class="row between"><div><div class="eyebrow">The money layer</div><h1 class="headline">Ledger</h1></div><button class="floating-action" aria-label="Add expense"><i data-lucide="plus"></i></button></div><p class="subtitle">An audit trail with no emotional subtext—just who paid, who shared, and what remains.</p></header>
+          <section class="card balance-hero accent-edge"><div class="row between"><div class="balance-label">ALL RECORDED SPEND</div><span class="pill subtle">JULY</span></div><div class="balance-value"><span class="currency">$</span>143.20</div><div class="metric-note">The complete household total recorded to date.</div><div class="spend-footer"><div><strong>4 entries</strong><span>immutable records</span></div><div><strong>Jul 14</strong><span>latest activity</span></div></div></section>
+          <section><div class="section-head"><span class="section-title">Who is carrying what</span><span class="section-action">Live</span></div><div class="card tight-stack"><div class="row"><span class="avatar active">A</span><div class="grow"><div class="row between"><span class="item-title">Aditya</span><span class="amount positive">+$16.40</span></div><div class="balance-track" style="margin-top:9px"><span style="width:72%"></span></div></div></div><div class="row"><span class="avatar">M</span><div class="grow"><div class="row between"><span class="item-title">Maya</span><span class="amount">−$4.80</span></div><div class="balance-track" style="margin-top:9px"><span style="width:31%;opacity:.42"></span></div></div></div><div class="row"><span class="avatar">L</span><div class="grow"><div class="row between"><span class="item-title">Leo</span><span class="amount">−$11.60</span></div><div class="balance-track" style="margin-top:9px"><span style="width:55%;opacity:.42"></span></div></div></div></div></section>
+          <section class="card elevated accent-edge"><span class="pill warn">DEBT DETOX READY</span><div class="row between" style="margin-top:14px"><div class="grow"><div class="item-title" style="font-size:19px">Fewer transfers. Same truth.</div><div class="item-sub">4 entries collapse into 2 payment paths.</div></div><div class="route-map"><i class="route-node hot"></i><i class="route-line"></i><i class="route-node"></i></div></div><button class="primary-btn"><span>Open payout plan</span><span class="button-icon"><i data-lucide="arrow-right"></i></span></button></section>
+          <section><div class="section-head"><span class="section-title">Expense trail</span><span class="section-action">Newest first</span></div><div class="list"><div class="list-row"><div class="row between"><div><div class="item-title">Working-from-home coffee</div><div class="item-sub">Paid by Aditya · Jul 14</div></div><span class="amount">$9.60</span></div><div class="row between" style="margin-top:12px"><span class="pill subtle">CUSTOM · 2</span><span class="tiny-link">INSPECT SPLIT</span></div></div><div class="list-row"><div class="row between"><div><div class="item-title">Cleaning supplies</div><div class="item-sub">Paid by Leo · Jul 14</div></div><span class="amount">$21.00</span></div><div class="row between" style="margin-top:12px"><span class="pill subtle">EQUAL · 3</span><span class="tiny-link">INSPECT SPLIT</span></div></div><div class="list-row"><div class="row between"><div><div class="item-title">Sunday groceries</div><div class="item-sub">Paid by Aditya · Jul 13</div></div><span class="amount">$48.60</span></div></div></div></section>
+        </div>
+        <nav class="tabbar"><div class="tab"><i data-lucide="house"></i><span>Home</span></div><div class="tab active"><i data-lucide="notebook-tabs"></i><span>Ledger</span></div><div class="tab"><i data-lucide="list-checks"></i><span>Chores</span></div><div class="tab"><i data-lucide="users"></i><span>Household</span></div></nav>
+      </div></div>
+    </section>
+
+    <!-- 03 CHORES -->
+    <section class="screen-wrap" id="chores">
+      <div class="screen-label"><strong>03 · Chores</strong><code>/(tabs)/chores</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div><div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content content-stack">
+          <header><div class="row between"><div><div class="eyebrow">The care layer</div><h1 class="headline">Chores</h1></div><button class="floating-action" aria-label="New chore"><i data-lucide="plus"></i></button></div><p class="subtitle">A visible rhythm for the invisible work that keeps a home feeling good.</p></header>
+          <section class="card elevated accent-edge"><span class="pill">JULY ACTIVITY</span><div class="item-title" style="font-size:21px;margin-top:14px">Chore activity this month</div><div class="item-sub">A plain summary of scheduled work across the household.</div><div class="frozen-summary two-col" style="margin-top:18px"><div class="frozen-item"><div class="frozen-label"><i data-lucide="circle-check"></i><span>COMPLETED</span></div><strong>3 chores</strong></div><div class="frozen-item"><div class="frozen-label"><i data-lucide="clock-3"></i><span>PENDING</span></div><strong>2 chores</strong></div></div><button class="primary-btn dark"><span>Review 30-day history</span><span class="button-icon"><i data-lucide="history"></i></span></button></section>
+          <section><div class="section-head"><span class="section-title">The next seven days</span><span class="section-action">2 in motion</span></div><div class="card"><div class="week"><div class="day today"><span>T</span><span class="date">15</span></div><div class="day"><span>W</span><span class="date">16</span></div><div class="day"><span>T</span><span class="date">17</span></div><div class="day"><span>F</span><span class="date">18</span></div><div class="day"><span>S</span><span class="date">19</span></div><div class="day"><span>S</span><span class="date">20</span></div><div class="day"><span>M</span><span class="date">21</span></div></div></div></section>
+          <section><div class="section-head"><span class="section-title">Reusable rituals</span><span class="section-action">History</span></div><div class="list"><div class="card accent-edge"><div class="row"><span class="avatar active">M</span><div class="grow"><div class="item-title" style="font-size:18px">Clean kitchen</div><div class="item-sub">Maya · due today</div></div><span class="pill">DUE</span></div><button class="primary-btn"><span>Mark complete</span><span class="button-icon"><i data-lucide="check"></i></span></button><div class="row between" style="margin-top:13px"><span class="tiny-link">TRACE HISTORY</span><span class="item-sub">REMOVE</span></div></div><div class="card"><div class="row"><span class="avatar">L</span><div class="grow"><div class="item-title" style="font-size:18px">Take out recycling</div><div class="item-sub">Leo · due tomorrow</div></div><span class="pill subtle">NEXT</span></div><button class="primary-btn dark"><span>Mark complete</span><span class="button-icon"><i data-lucide="check"></i></span></button><div class="row between" style="margin-top:13px"><span class="tiny-link">TRACE HISTORY</span><span class="item-sub">REMOVE</span></div></div></div></section>
+          <div class="callout"><strong>Give another task a home.</strong>Create a reusable chore that can be scheduled again without rebuilding the details.</div>
+        </div>
+        <nav class="tabbar"><div class="tab"><i data-lucide="house"></i><span>Home</span></div><div class="tab"><i data-lucide="notebook-tabs"></i><span>Ledger</span></div><div class="tab active"><i data-lucide="list-checks"></i><span>Chores</span></div><div class="tab"><i data-lucide="users"></i><span>Household</span></div></nav>
+      </div></div>
+    </section>
+
+    <!-- 04 HOUSEHOLD -->
+    <section class="screen-wrap" id="household">
+      <div class="screen-label"><strong>04 · Household</strong><code>/(tabs)/household</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div><div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content content-stack">
+          <header><div class="eyebrow">The people layer</div><h1 class="headline">Household</h1><p class="subtitle">Flat hierarchy by design. Everyone gets the same keys and the same truth.</p></header>
+          <section class="card elevated accent-edge"><div class="row between"><div class="brand-lockup"><img src="../assets/brand/homiez-mark.svg" alt="" /><span>The Cedar Flat</span></div><span class="sync-pill">DEMO HOUSEHOLD</span></div><div class="join-code"><span>CEDAR-42</span><i data-lucide="share-2"></i></div><div class="item-sub" style="margin-top:9px">homiez://join/CEDAR-42</div></section>
+          <div class="stat-grid" style="grid-template-columns:2fr 1fr"><div class="stat"><span>WHO IS HOME</span><div class="avatar-stack" style="margin-top:13px"><span class="avatar">A</span><span class="avatar">M</span><span class="avatar">L</span></div><strong>3 active</strong></div><div class="stat"><span>ARCHIVE</span><strong>1</strong><span class="tiny-link" style="margin-top:12px">REVIEW</span></div></div>
+          <section><div class="section-head"><span class="section-title">Equal keys, individual stories</span><span class="section-action">Archive</span></div><div class="list"><div class="list-row row"><span class="avatar active">A</span><div class="grow"><div class="item-title">Aditya</div><div class="item-sub">aditya@example.com</div></div><span class="pill">YOU</span></div><div class="list-row row"><span class="avatar active">M</span><div class="grow"><div class="item-title">Maya</div><div class="item-sub">maya@example.com</div></div><span class="tiny-link">MOVE OUT</span></div><div class="list-row row"><span class="avatar active">L</span><div class="grow"><div class="item-title">Leo</div><div class="item-sub">leo@example.com</div></div><span class="tiny-link">MOVE OUT</span></div></div></section>
+          <section><div class="section-head"><span class="section-title">Your corner</span></div><div class="card row"><span class="avatar active">A</span><div class="grow"><div class="item-title">Account &amp; connection</div><div class="item-sub">Email identity · secure cloud session</div></div><span class="button-icon" style="display:grid;place-items:center;width:38px;height:38px;border-radius:13px;background:var(--surface-2)"><i data-lucide="arrow-up-right" style="width:17px"></i></span></div></section>
+        </div>
+        <nav class="tabbar"><div class="tab"><i data-lucide="house"></i><span>Home</span></div><div class="tab"><i data-lucide="notebook-tabs"></i><span>Ledger</span></div><div class="tab"><i data-lucide="list-checks"></i><span>Chores</span></div><div class="tab active"><i data-lucide="users"></i><span>Household</span></div></nav>
+      </div></div>
+    </section>
+
+    <!-- 05 ADD EXPENSE -->
+    <section class="screen-wrap" id="add-expense">
+      <div class="screen-label"><strong>05 · Add expense</strong><code>/add-expense</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div><div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content modal content-stack">
+          <div class="modal-handle"></div><div class="modal-nav"><button><i data-lucide="x"></i></button><strong>Add expense</strong><span style="width:38px"></span></div>
+          <header><div class="eyebrow">New ledger entry</div><h1 class="headline small">Log the facts</h1><p class="subtitle">The split becomes visible to everyone—down to the cent.</p></header>
+          <div class="field-group"><label>WHAT WAS IT?</label><input class="field" value="Sunday groceries" aria-label="Expense description" /></div>
+          <div class="field-group"><label>TOTAL AMOUNT</label><div class="money-field"><span>$</span><input value="48.60" aria-label="Amount" /></div></div>
+          <section><div class="section-head"><span class="section-title">Who paid?</span></div><div class="row" style="overflow:hidden"><div class="choice-row selected"><span class="avatar active">A</span><span class="item-title">Aditya</span></div><div class="choice-row"><span class="avatar">M</span><span class="item-title">Maya</span></div></div></section>
+          <section><div class="section-head"><span class="section-title">How should it split?</span></div><div class="segmented"><button class="segment active">Equal</button><button class="segment">Custom</button></div><p class="item-sub">The amount is divided evenly, down to the cent.</p></section>
+          <section><div class="section-head"><span class="section-title">Split with</span><span class="section-action">3 selected</span></div><div class="list"><div class="choice-row selected"><span class="avatar">A</span><div class="grow"><div class="item-title">Aditya</div><div class="item-sub">Included</div></div><span class="pill subtle">$16.20</span><span class="radio"></span></div><div class="choice-row selected"><span class="avatar">M</span><div class="grow"><div class="item-title">Maya</div><div class="item-sub">Included</div></div><span class="pill subtle">$16.20</span><span class="radio"></span></div><div class="choice-row selected"><span class="avatar">L</span><div class="grow"><div class="item-title">Leo</div><div class="item-sub">Included</div></div><span class="pill subtle">$16.20</span><span class="radio"></span></div></div></section>
+          <div class="callout"><strong>$48.60 assigned</strong>3 roommates · $16.20 each</div>
+          <button class="primary-btn"><span>Save expense</span><span class="button-icon"><i data-lucide="check"></i></span></button>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 06 DEBT DETOX -->
+    <section class="screen-wrap" id="debt-detox">
+      <div class="screen-label"><strong>06 · Debt Detox</strong><code>/debt-detox</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div><div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content modal content-stack">
+          <div class="modal-nav"><button><i data-lucide="chevron-left"></i></button><strong>Debt Detox</strong><span style="width:38px"></span></div>
+          <header><div class="eyebrow">On-demand clarity</div><h1 class="headline small">The shortest path to even.</h1><p class="subtitle">Every assumption stays visible. Homiez never moves funds.</p></header>
+          <section class="card balance-hero accent-edge"><span class="pill warn">SIMPLIFIED PLAN</span><div class="row between" style="margin-top:17px"><div><div class="balance-label">MESSY IOUS BECOME</div><div class="balance-value">2</div><div class="metric-note">direct payments</div></div><div class="route-map"><i class="route-node hot"></i><i class="route-line"></i><i class="route-node"></i><i class="route-line"></i><i class="route-node hot"></i></div></div></section>
+          <section><div class="section-head"><span class="section-title">The clean route</span><span class="section-action">2 steps</span></div><div class="list"><div class="list-row row"><span class="stat" style="flex:0 0 48px;padding:12px;text-align:center"><strong style="margin:0;font-size:18px">01</strong></span><div class="grow"><div class="item-title">Maya → Aditya</div><div class="item-sub">One direct external payment</div></div><span class="amount positive">$4.80</span></div><div class="list-row row"><span class="stat" style="flex:0 0 48px;padding:12px;text-align:center"><strong style="margin:0;font-size:18px">02</strong></span><div class="grow"><div class="item-title">Leo → Aditya</div><div class="item-sub">One direct external payment</div></div><span class="amount positive">$11.60</span></div></div></section>
+          <section><div class="section-head"><span class="section-title">Net positions</span></div><div class="frozen-summary"><div class="frozen-item"><div class="frozen-label"><i data-lucide="arrow-down-left"></i><span>ADITYA</span></div><strong class="accent-text">+$16.40</strong><span class="compact-note">is owed</span></div><div class="frozen-item"><div class="frozen-label"><i data-lucide="arrow-up-right"></i><span>MAYA</span></div><strong>−$4.80</strong><span class="compact-note">owes</span></div><div class="frozen-item"><div class="frozen-label"><i data-lucide="arrow-up-right"></i><span>LEO</span></div><strong>−$11.60</strong><span class="compact-note">owes</span></div></div></section>
+          <section class="card inset"><div class="row between"><div class="grow"><div class="item-title">Show every line of math</div><div class="item-sub">Net positions first, direct matching second.</div></div><span class="button-icon" style="display:grid;place-items:center;width:38px;height:38px;border-radius:13px;background:var(--surface-2)"><i data-lucide="plus"></i></span></div></section>
+          <button class="primary-btn"><span>Accept this payout plan</span><span class="button-icon"><i data-lucide="check"></i></span></button>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 07 ADD CHORE -->
+    <section class="screen-wrap" id="add-chore">
+      <div class="screen-label"><strong>07 · Add chore</strong><code>/add-chore</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div><div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content modal content-stack">
+          <div class="modal-handle"></div><div class="modal-nav"><button><i data-lucide="x"></i></button><strong>New chore</strong><span style="width:38px"></span></div>
+          <header><div class="eyebrow">New household ritual</div><h1 class="headline small">Schedule a chore</h1><p class="subtitle">Create the reusable task once, then give its first appearance a person and a date.</p></header>
+          <div class="field-group"><label>CHORE NAME</label><input class="field" value="Clean kitchen" aria-label="Chore name" /></div>
+          <section><div class="section-head"><span class="section-title">Assign to</span></div><div class="list"><div class="choice-row"><span class="avatar">A</span><div class="grow"><div class="item-title">Aditya</div><div class="item-sub">Current user</div></div><span class="radio"></span></div><div class="choice-row selected"><span class="avatar active">M</span><div class="grow"><div class="item-title">Maya</div><div class="item-sub">Selected</div></div><span class="radio"></span></div><div class="choice-row"><span class="avatar">L</span><div class="grow"><div class="item-title">Leo</div><div class="item-sub">Roommate</div></div><span class="radio"></span></div></div></section>
+          <div class="field-group"><label>DUE DATE</label><input class="field" value="2026-07-16" aria-label="Due date" /></div>
+          <div class="card elevated"><div class="row"><i data-lucide="calendar-clock" class="accent-text"></i><div><div class="item-title">Tomorrow</div><div class="item-sub">Thursday, July 16 · assigned to Maya</div></div></div></div>
+          <button class="primary-btn"><span>Create chore</span><span class="button-icon"><i data-lucide="check"></i></span></button>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 08 CHORE HISTORY -->
+    <section class="screen-wrap" id="chore-history">
+      <div class="screen-label"><strong>08 · Chore history</strong><code>/chore-history</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div><div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content modal content-stack">
+          <div class="modal-nav"><button><i data-lucide="chevron-left"></i></button><strong>Chore history</strong><span style="width:38px"></span></div>
+          <header><div class="eyebrow">Thirty-day record</div><h1 class="headline small">A memory of care.</h1><p class="subtitle">Completed work and intentionally removed chores, kept chronological.</p></header>
+          <div class="segmented"><button class="segment active">Completed · 3</button><button class="segment">Deleted · 1</button></div>
+          <section><div class="section-head"><span class="section-title">Completed tasks</span><span class="section-action">30 days</span></div><div class="list"><div class="list-row row"><span class="avatar active">A</span><div class="grow"><div class="item-title">Clean kitchen</div><div class="item-sub">Aditya · Jul 8, 8:42 PM</div></div><span class="pill">DONE</span></div><div class="list-row row"><span class="avatar active">L</span><div class="grow"><div class="item-title">Clean kitchen</div><div class="item-sub">Leo · Jul 2, 7:10 PM</div></div><span class="pill">DONE</span></div><div class="list-row row"><span class="avatar active">M</span><div class="grow"><div class="item-title">Mop hallway</div><div class="item-sub">Maya · Jun 29, 6:24 PM</div></div><span class="pill">DONE</span></div></div></section>
+          <div class="allocation"><div><b style="height:42%"></b><small>W1</small></div><div><b style="height:76%"></b><small>W2</small></div><div><b style="height:56%"></b><small>W3</small></div><div><b style="height:88%"></b><small>W4</small></div></div>
+          <div class="legend"><span><i></i>Kitchen</span><span><i></i>Recycling</span><span><i></i>Hallway</span><span><i></i>Other</span></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 09 ARCHIVED ROOMMATES -->
+    <section class="screen-wrap" id="archived-roommates">
+      <div class="screen-label"><strong>09 · Archived roommates</strong><code>/archived-roommates</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div><div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content modal content-stack">
+          <div class="modal-nav"><button><i data-lucide="chevron-left"></i></button><strong>Archived roommates</strong><span style="width:38px"></span></div>
+          <header><div class="eyebrow">Reversible by design</div><h1 class="headline small">Nobody is silently erased.</h1><p class="subtitle">Archived roommates freeze from new activity. The initiator keeps the undo key.</p></header>
+          <section class="card elevated accent-edge"><div class="row"><span class="avatar">J</span><div class="grow"><div class="item-title" style="font-size:19px">Jamie</div><div class="item-sub">Moved out July 13, 8:16 PM</div></div><span class="pill warn">FROZEN</span></div><div class="callout" style="margin-top:15px"><strong>You hold the undo key.</strong>You initiated this move-out, so Jamie can be restored immediately.</div><button class="primary-btn"><span>Reclaim roommate</span><span class="button-icon"><i data-lucide="undo-2"></i></span></button></section>
+          <section><div class="section-head"><span class="section-title">What remains frozen</span></div><div class="frozen-summary"><div class="frozen-item"><div class="frozen-label"><i data-lucide="receipt-text"></i><span>NEW EXPENSES</span></div><strong>Off</strong></div><div class="frozen-item"><div class="frozen-label"><i data-lucide="list-checks"></i><span>NEW CHORES</span></div><strong>Off</strong></div><div class="frozen-item"><div class="frozen-label"><i data-lucide="history"></i><span>HISTORY</span></div><strong class="accent-text">Safe</strong></div></div></section>
+          <div class="card inset"><div class="row"><i data-lucide="shield-check" class="accent-text"></i><div><div class="item-title">History stays intact</div><div class="item-sub">Past expenses, balances, and completed chores remain visible in the audit trail.</div></div></div></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 10 HOUSEHOLD SETUP -->
+    <section class="screen-wrap" id="household-setup">
+      <div class="screen-label"><strong>10 · Household setup</strong><code>/household-setup</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div><div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content modal content-stack">
+          <div class="modal-handle"></div><div class="modal-nav"><button><i data-lucide="x"></i></button><strong>Set up household</strong><span style="width:38px"></span></div>
+          <header><div class="eyebrow">One flat, one ledger</div><h1 class="headline small">Find your flat</h1><p class="subtitle">Create the household from scratch or use the key another roommate shared.</p></header>
+          <div class="segmented" data-household-switcher><button class="segment active" data-mode="create" aria-pressed="true">Create new</button><button class="segment" data-mode="join" aria-pressed="false">Join existing</button></div>
+          <section class="card accent-edge">
+            <div class="setup-panel" data-setup-panel="create"><span class="pill warn">START FRESH</span><div class="item-title" style="font-size:20px;margin-top:14px">Create a household</div><div class="field-group" style="margin-top:14px"><label>HOUSEHOLD NAME</label><input class="field" value="The Cedar Flat" aria-label="Household name" /></div><div class="item-sub" style="margin-top:11px">Homiez creates a unique join code every active roommate can share.</div><button class="primary-btn"><span>Create household</span><span class="button-icon"><i data-lucide="home"></i></span></button></div>
+            <div class="setup-panel" data-setup-panel="join" hidden><span class="pill subtle">USE A KEY</span><div class="item-title" style="font-size:20px;margin-top:14px">Join an existing household</div><div class="field-group" style="margin-top:14px"><label>JOIN CODE</label><input class="field" value="CEDAR-42" aria-label="Join code" style="font-weight:750;letter-spacing:2px" /></div><div class="item-sub" style="margin-top:11px">Enter the code shared by an active roommate to join their existing ledger.</div><button class="primary-btn"><span>Join household</span><span class="button-icon"><i data-lucide="key-round"></i></span></button></div>
+          </section>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 11 ACCOUNT -->
+    <section class="screen-wrap" id="account">
+      <div class="screen-label"><strong>11 · Account</strong><code>/auth</code></div>
+      <div class="phone"><div class="phone-screen">
+        <div class="dynamic-island"></div><div class="statusbar"><span>9:41</span><span class="status-icons"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+        <div class="screen-content modal content-stack">
+          <div class="modal-nav"><button><i data-lucide="chevron-left"></i></button><strong>Your account</strong><span style="width:38px"></span></div>
+          <header><div class="eyebrow">Your private key</div><h1 class="headline small">Your account</h1><p class="subtitle">Email identity connects this device to the shared household without changing the flat hierarchy.</p></header>
+          <section class="card elevated accent-edge"><div class="row between"><div class="brand-lockup"><img src="../assets/brand/homiez-mark.svg" alt="" /><span>homiez</span></div><span class="sync-pill">SUPABASE CONNECTED</span></div><div class="field-group" style="margin-top:18px"><label>EMAIL</label><input class="field" value="aditya@example.com" type="email" aria-label="Email" /></div><div class="field-group" style="margin-top:14px"><label>PASSWORD</label><input class="field" value="••••••••••" type="text" aria-label="Password" /></div><button class="primary-btn"><span>Sign in</span><span class="button-icon"><i data-lucide="log-in"></i></span></button><button class="primary-btn dark"><span>Create account</span><span class="button-icon"><i data-lucide="user-plus"></i></span></button></section>
+          <div class="card inset"><div class="row"><i data-lucide="lock-keyhole" class="accent-text"></i><div><div class="item-title">Private by default</div><div class="item-sub">Your encrypted Supabase session stays on this device and can be revoked at any time.</div></div></div></div>
+        </div>
+      </div></div>
+    </section>
+  </main>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) lucide.createIcons();
+      const switcher = document.querySelector('[data-household-switcher]');
+      if (!switcher) return;
+      const buttons = Array.from(switcher.querySelectorAll('[data-mode]'));
+      const panels = Array.from(document.querySelectorAll('[data-setup-panel]'));
+      buttons.forEach((button) => button.addEventListener('click', () => {
+        const mode = button.dataset.mode;
+        buttons.forEach((item) => {
+          const selected = item.dataset.mode === mode;
+          item.classList.toggle('active', selected);
+          item.setAttribute('aria-pressed', String(selected));
+        });
+        panels.forEach((panel) => { panel.hidden = panel.dataset.setupPanel !== mode; });
+      }));
+    });
+  </script>
+</body>
+</html>

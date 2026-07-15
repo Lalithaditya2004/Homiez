@@ -1,103 +1,30 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { AppScreen, useAppTheme } from '@/components/app-screen';
-import { Avatar, Card, GhostButton, Pill, PrimaryButton, SectionTitle } from '@/components/homiez-ui';
+import { BrandLockup, BrandMark } from '@/components/brand-mark';
+import { Avatar, Card, EditorialHeader, Pill, PrimaryButton, SectionTitle, StatChip } from '@/components/homiez-ui';
+import { typography } from '@/constants/design';
 import { useHousehold } from '@/providers/household-provider';
 
 export default function HouseholdScreen() {
   const theme = useAppTheme();
   const { data, activeMembers, archivedMembers, cloudError, cloudState, moveOutMember, refreshCloud } = useHousehold();
-  const currentMember = data.members.find((member) => member.id === data.currentUserId)!;
+  const current = data.members.find((member) => member.id === data.currentUserId)!;
 
   if (cloudState !== 'demo' && cloudState !== 'synced') {
-    const needsSignIn = cloudState === 'signed-out';
-    const needsSetup = cloudState === 'needs-household';
-    const isLoading = cloudState === 'loading';
-    return (
-      <AppScreen>
-        <View style={{ gap: 4 }}>
-          <Text selectable style={{ color: theme.heading, fontSize: 30, fontWeight: '800', letterSpacing: -0.8 }}>Household</Text>
-          <Text selectable style={{ color: theme.muted, fontSize: 15 }}>Secure, shared data begins here.</Text>
-        </View>
-        <Card accent={cloudState === 'error' ? theme.moneyNegative : theme.pending}>
-          <Text selectable style={{ color: theme.heading, fontSize: 19, fontWeight: '800' }}>
-            {isLoading ? 'Loading your household…' : needsSignIn ? 'Sign in to sync your flat' : needsSetup ? 'Create or join a household' : 'Could not reach your household'}
-          </Text>
-          <Text selectable style={{ color: theme.body, fontSize: 14, lineHeight: 20 }}>
-            {isLoading ? 'Checking your Supabase session and household access.' : needsSignIn ? 'Your demo workspace remains available locally until you connect an email account.' : needsSetup ? 'You are signed in. Create a new flat or enter the code another roommate shared.' : cloudError ?? 'Try again to restore the secure cloud connection.'}
-          </Text>
-          {needsSignIn ? <PrimaryButton label="Open account" onPress={() => router.push('/auth' as never)} /> : null}
-          {needsSetup ? <PrimaryButton label="Set up household" onPress={() => router.push('/household-setup' as never)} /> : null}
-          {cloudState === 'error' ? <PrimaryButton label="Try again" onPress={() => void refreshCloud()} /> : null}
-        </Card>
-      </AppScreen>
-    );
+    const signIn = cloudState === 'signed-out'; const setup = cloudState === 'needs-household';
+    return <AppScreen contentContainerStyle={{ paddingBottom: 118 }}><EditorialHeader eyebrow="The people layer" title="Household" description="Secure shared data begins with a real account and one flat." /><Card accent={theme.accent} variant="elevated"><BrandMark /><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 26 }}>{cloudState === 'loading' ? 'Finding your front door…' : signIn ? 'Bring your flat online.' : setup ? 'Name the place you share.' : 'The connection went quiet.'}</Text><Text selectable style={{ color: theme.muted, lineHeight: 19 }}>{cloudError ?? 'Your on-device demo remains safe while this connection is resolved.'}</Text>{signIn ? <PrimaryButton label="Open account" onPress={() => router.push('/auth' as never)} /> : null}{setup ? <PrimaryButton label="Create or join a household" onPress={() => router.push('/household-setup' as never)} /> : null}{cloudState === 'error' ? <PrimaryButton label="Try again" onPress={() => void refreshCloud()} /> : null}</Card></AppScreen>;
   }
 
   return (
-    <AppScreen>
-      <View style={{ gap: 4 }}>
-        <Text selectable style={{ color: theme.heading, fontSize: 30, fontWeight: '800', letterSpacing: -0.8 }}>Household</Text>
-        <Text selectable style={{ color: theme.muted, fontSize: 15 }}>Everyone has the same keys.</Text>
-      </View>
-
-      <Card>
-        <Text selectable style={{ color: theme.muted, fontSize: 13, fontWeight: '700' }}>INVITE LINK</Text>
-        <Text selectable style={{ color: theme.heading, fontSize: 20, fontWeight: '800' }}>{data.name}</Text>
-        <View style={{ backgroundColor: theme.background, borderRadius: 12, borderWidth: 1, borderColor: theme.border, padding: 12 }}>
-          <Text selectable style={{ color: theme.body, fontSize: 14 }}>homiez://join/{data.joinCode}</Text>
-        </View>
-        <Pill tone="pending">CODE · {data.joinCode}</Pill>
-      </Card>
-
-      <View style={{ gap: 10 }}>
-        <SectionTitle title={`Roommates · ${activeMembers.length}`} action="Archived" onPress={() => router.push('/archived-roommates' as never)} />
-        {activeMembers.map((member) => {
-          const isCurrentUser = member.id === data.currentUserId;
-          return (
-            <Card key={member.id} style={{ padding: 14, gap: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Avatar name={member.name} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text selectable style={{ color: theme.heading, fontSize: 16, fontWeight: '800' }}>{member.name}{isCurrentUser ? ' · you' : ''}</Text>
-                  <Text selectable style={{ color: theme.muted, fontSize: 13 }}>{member.email}</Text>
-                </View>
-                <Pill tone="positive">ACTIVE</Pill>
-              </View>
-              {!isCurrentUser ? (
-                <GhostButton
-                  label="Move out"
-                  color={theme.moneyNegative}
-                  onPress={() => Alert.alert(
-                    `Move out ${member.name}?`,
-                    'Their account will be frozen from new expenses. Only you can undo this in Archived roommates.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Move out', style: 'destructive', onPress: () => moveOutMember(member.id) },
-                    ],
-                  )}
-                />
-              ) : null}
-            </Card>
-          );
-        })}
-      </View>
-
-      <Pressable accessibilityRole="button" onPress={() => router.push('/auth' as never)}>
-        <Card style={{ padding: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Avatar name={currentMember.name} color={theme.moneyPositiveTint} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text selectable style={{ color: theme.heading, fontSize: 16, fontWeight: '800' }}>Account</Text>
-              <Text selectable style={{ color: theme.muted, fontSize: 13 }}>Email sign-in and Supabase connection</Text>
-            </View>
-            <Text selectable style={{ color: theme.muted, fontSize: 22 }}>›</Text>
-          </View>
-        </Card>
-      </Pressable>
-
-      {archivedMembers.length ? <Text selectable style={{ color: theme.muted, fontSize: 13 }}>{archivedMembers.length} roommate{archivedMembers.length === 1 ? '' : 's'} can be reviewed in the archive.</Text> : null}
+    <AppScreen contentContainerStyle={{ paddingBottom: 118 }}>
+      <EditorialHeader eyebrow="The people layer" title="Household" description="Flat hierarchy by design. Everyone gets the same keys and the same truth." />
+      <Card accent={theme.accent} variant="elevated"><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}><BrandLockup compact /><Pill tone={cloudState === 'synced' ? 'positive' : 'neutral'}>{cloudState === 'synced' ? 'LIVE HOUSEHOLD' : 'DEMO HOUSEHOLD'}</Pill></View><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 20 }}>{data.name}</Text><View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 18, backgroundColor: theme.background, boxShadow: 'inset 4px 4px 10px rgba(0,0,0,.3)' }}><Text selectable style={{ color: theme.heading, flex: 1, fontFamily: typography.bold, fontSize: 21, letterSpacing: 2.5 }}>{data.joinCode}</Text><MaterialIcons name="share" size={20} color={theme.accent} /></View><Text selectable style={{ color: theme.muted, fontSize: 11 }}>homiez://join/{data.joinCode}</Text></Card>
+      <View style={{ flexDirection: 'row', gap: 9 }}><StatChip label="Who is home" value={`${activeMembers.length} active`} /><StatChip label="Archive" value={`${archivedMembers.length}`} accent={theme.accent} /></View>
+      <View style={{ gap: 12 }}><SectionTitle title="Equal keys, individual stories" action="Archive" onPress={() => router.push('/archived-roommates' as never)} />{activeMembers.map((member) => { const isCurrent = member.id === data.currentUserId; return <Card key={member.id} style={{ padding: 14 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Avatar name={member.name} active /><View style={{ flex: 1 }}><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 14 }}>{member.name}</Text><Text selectable style={{ color: theme.muted, fontSize: 11, marginTop: 4 }}>{member.email}</Text></View>{isCurrent ? <Pill tone="positive">YOU</Pill> : <Pressable onPress={() => Alert.alert(`Move out ${member.name}?`, 'Their history remains intact and this action can be reversed by you.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Move out', style: 'destructive', onPress: () => moveOutMember(member.id) }])}><Text style={{ color: theme.accent, fontFamily: typography.bold, fontSize: 10 }}>MOVE OUT</Text></Pressable>}</View></Card>; })}</View>
+      <View style={{ gap: 12 }}><SectionTitle title="Your corner" /><Pressable onPress={() => router.push('/auth' as never)}><Card><View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Avatar name={current.name} active /><View style={{ flex: 1 }}><Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 14 }}>Account & connection</Text><Text selectable style={{ color: theme.muted, fontSize: 11, marginTop: 4 }}>Email identity · secure cloud session</Text></View><View style={{ width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.cardStrong }}><MaterialIcons name="north-east" color={theme.heading} size={18} /></View></View></Card></Pressable></View>
     </AppScreen>
   );
 }
