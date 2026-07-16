@@ -39,7 +39,7 @@ export default function HouseholdScreen() {
     const signIn = cloudState === "signed-out";
     const setup = cloudState === "needs-household";
     return (
-      <AppScreen contentContainerStyle={{ paddingBottom: 118 }}>
+      <AppScreen contentContainerStyle={{ paddingBottom: 42 }}>
         <ScreenIllustration source={screenIllustrations.household} artworkOnly />
         <Card accent={theme.accent} variant="elevated">
           <EditorialHeader
@@ -93,7 +93,7 @@ export default function HouseholdScreen() {
   }
 
   return (
-    <AppScreen contentContainerStyle={{ paddingBottom: 118 }}>
+    <AppScreen contentContainerStyle={{ paddingBottom: 42 }}>
       <ScreenIllustration source={screenIllustrations.household} artworkOnly />
       <Card accent={theme.accent} variant="elevated">
         <EditorialHeader

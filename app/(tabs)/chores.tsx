@@ -80,7 +80,7 @@ export default function ChoresScreen() {
 
   return (
     <>
-      <AppScreen style={{ backgroundColor: CHORES_BACKGROUND }} contentContainerStyle={{ paddingBottom: 118 }}>
+      <AppScreen style={{ backgroundColor: CHORES_BACKGROUND }} contentContainerStyle={{ paddingBottom: 42 }}>
         <ScreenIllustration source={screenIllustrations.chores} backgroundColor={CHORES_BACKGROUND} artworkOnly showGround={false} />
 
         <Card accent={theme.accent} variant="elevated" style={{ paddingTop: 20 }}>

@@ -70,7 +70,7 @@ export default function LedgerScreen() {
 
   return (
     <>
-      <AppScreen contentContainerStyle={{ paddingBottom: 118 }}>
+      <AppScreen contentContainerStyle={{ paddingBottom: 42 }}>
         <ScreenIllustration source={screenIllustrations.ledger} artworkOnly />
 
         <Card accent={theme.accent} variant="elevated" style={{ padding: 20 }}>
