@@ -1,8 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
-import type { PropsWithChildren, ReactNode } from 'react';
+import { useState, type PropsWithChildren, type ReactNode } from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { FadeInUp, LinearTransition, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInUp, LinearTransition, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { useAppTheme } from '@/components/app-screen';
 import { radius, springConfig, typography } from '@/constants/design';
@@ -11,8 +11,8 @@ export function Card({ children, accent, style, delay = 0, variant = 'default' }
   const theme = useAppTheme();
   return (
     <Animated.View
-      entering={process.env.EXPO_OS === 'web' ? undefined : FadeInUp.delay(delay).duration(260)}
-      layout={LinearTransition.springify().damping(18).stiffness(180)}
+      entering={process.env.EXPO_OS === 'web' ? undefined : FadeIn.delay(delay).duration(140)}
+      layout={process.env.EXPO_OS === 'web' ? undefined : LinearTransition.duration(120)}
       style={[{
         position: 'relative', overflow: 'hidden', backgroundColor: variant === 'elevated' ? theme.cardStrong : theme.card,
         borderRadius: radius.card, borderCurve: 'continuous', padding: 17, gap: 12,
@@ -31,7 +31,7 @@ export function EditorialHeader({ eyebrow, title, description, trailing }: { eye
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14 }}>
         <View style={{ flex: 1, gap: 8 }}>
           <Text selectable style={{ color: theme.muted, fontFamily: typography.bold, fontSize: 11 }}>{eyebrow}</Text>
-          <Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 35, lineHeight: 38, letterSpacing: -1.35 }}>{title}</Text>
+          <Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 35, lineHeight: 43, letterSpacing: -1.35, paddingBottom: 2 }}>{title}</Text>
         </View>
         {trailing}
       </View>
@@ -109,6 +109,47 @@ export function StatChip({ label, value, accent }: { label: string; value: strin
 export function Segmented({ options, value, onChange }: { options: { value: string; label: string }[]; value: string; onChange: (value: string) => void }) {
   const theme = useAppTheme();
   return <View style={{ flexDirection: 'row', gap: 5, padding: 5, borderRadius: 18, backgroundColor: theme.card, boxShadow: 'inset 4px 4px 10px rgba(0,0,0,.24)' }}>{options.map((option) => { const selected = option.value === value; return <Pressable key={option.value} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => onChange(option.value)} style={({ pressed }) => ({ flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: selected ? theme.cardStrong : 'transparent', opacity: pressed ? .7 : 1, boxShadow: selected ? '0 5px 14px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.045)' : undefined })}><Text style={{ color: selected ? theme.heading : theme.muted, fontFamily: typography.semibold, fontSize: 12 }}>{option.label}</Text></Pressable>; })}</View>;
+}
+
+export function SelectField({ accessibilityLabel, options, value, onChange }: { accessibilityLabel: string; options: { value: string; label: string }[]; value: string; onChange: (value: string) => void }) {
+  const theme = useAppTheme();
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.value === value) ?? options[0];
+  return (
+    <View style={{ gap: 6 }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((current) => !current)}
+        style={({ pressed }) => ({
+          minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 15,
+          borderRadius: 17, borderCurve: 'continuous', backgroundColor: theme.background, opacity: pressed ? .72 : 1,
+          boxShadow: 'inset 4px 4px 10px rgba(0,0,0,.28)',
+        })}>
+        <Text selectable style={{ flex: 1, color: theme.heading, fontFamily: typography.semibold, fontSize: 14 }}>{selected?.label ?? 'Select'}</Text>
+        <MaterialIcons name={open ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} color={theme.muted} />
+      </Pressable>
+      {open ? (
+        <View style={{ padding: 5, borderRadius: 17, backgroundColor: theme.cardStrong, boxShadow: '0 12px 26px rgba(0,0,0,.28)' }}>
+          {options.map((option) => {
+            const active = option.value === value;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => { onChange(option.value); setOpen(false); }}
+                style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 13, backgroundColor: active ? theme.soft : 'transparent', opacity: pressed ? .7 : 1 })}>
+                <Text style={{ flex: 1, color: active ? theme.heading : theme.muted, fontFamily: typography.medium, fontSize: 13 }}>{option.label}</Text>
+                {active ? <MaterialIcons name="check" size={17} color={theme.accent} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 export function Callout({ title, children }: PropsWithChildren<{ title: string }>) {

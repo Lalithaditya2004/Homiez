@@ -1,7 +1,9 @@
-export function formatMoney(cents: number): string {
+import type { CurrencyCode } from '@/lib/types';
+
+export function formatMoney(cents: number, currency: CurrencyCode = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency,
     minimumFractionDigits: 2,
   }).format(cents / 100);
 }

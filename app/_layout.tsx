@@ -68,8 +68,9 @@ export default function RootLayout() {
           }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="add-expense" options={{ presentation: 'formSheet', title: 'Add expense', sheetGrabberVisible: true }} />
-          <Stack.Screen name="debt-detox" options={{ presentation: 'modal', title: 'Debt Detox' }} />
+          <Stack.Screen name="expenses-split" options={{ presentation: 'modal', title: 'Expenses split' }} />
           <Stack.Screen name="add-chore" options={{ presentation: 'formSheet', title: 'New chore', sheetGrabberVisible: true }} />
+          <Stack.Screen name="chore-detail" options={{ presentation: 'modal', title: 'Chore details' }} />
           <Stack.Screen name="chore-history" options={{ presentation: 'modal', title: 'Chore history' }} />
           <Stack.Screen name="archived-roommates" options={{ presentation: 'modal', title: 'Archived roommates' }} />
           <Stack.Screen name="household-setup" options={{ presentation: 'formSheet', title: 'Set up household', sheetGrabberVisible: true }} />

@@ -5,9 +5,9 @@ Homiez is a shared, neutral roommate ledger for expenses and chores. It records 
 ## What is included
 
 - Equal and custom expense splits in integer cents, including dollar-amount and percentage entry.
-- Client-side **Debt Detox** that reduces net balances to the fewest direct payments and shows every calculation step.
+- Peer-by-peer settlement review with partial payments, corrections, and 30-day expense history.
 - Settlement plans with external-payment confirmation; Homiez never calls a payment provider.
-- Reusable chore templates, scheduling, completion logging, a rolling 30-day history, and a soft-deleted chores view.
+- Reusable chore templates, scheduling, completion/skip attribution, and a roommate-filtered rolling 30-day history.
 - Household join codes, flat member permissions, move-out freezing, and initiator-only reclaiming.
 - Supabase Auth, secure Row-Level Security policies, Realtime subscriptions, and a local demo fallback when cloud variables are absent.
 
@@ -39,4 +39,4 @@ bunx expo lint
 bunx expo export --platform web --output-dir <temporary-folder> --no-bytecode
 ```
 
-The app has been checked with TypeScript, Expo lint, a Debt Detox invariant test, and a static Expo web export.
+The app is checked with TypeScript, Expo lint, peer-ledger invariant tests, and a static Expo web export.
