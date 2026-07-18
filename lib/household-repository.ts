@@ -303,6 +303,22 @@ export async function resolveCloudSettlement(requestId: string, action: 'accept'
   throwIfError(error);
 }
 
+export async function settleCloudReceivable(householdId: string, debtorId: string, amountCents: number): Promise<void> {
+  const client = clientOrThrow();
+  const { error } = await client.rpc('settle_receivable', {
+    p_household_id: householdId,
+    p_debtor_id: debtorId,
+    p_amount: amountCents,
+  });
+  throwIfError(error);
+}
+
+export async function settleAllCloudReceivables(householdId: string): Promise<void> {
+  const client = clientOrThrow();
+  const { error } = await client.rpc('settle_all_my_receivables', { p_household_id: householdId });
+  throwIfError(error);
+}
+
 export async function createCloudChore(
   householdId: string,
   name: string,
@@ -411,6 +427,26 @@ export async function deleteCloudChoreTemplate(templateId: string): Promise<void
 export async function moveOutCloudMember(householdId: string, memberId: string): Promise<void> {
   const client = clientOrThrow();
   const { error } = await client.rpc('move_out_member', { p_household_id: householdId, p_user_id: memberId });
+  throwIfError(error);
+}
+
+export async function leaveCloudHousehold(householdId: string, settleReceivables = false): Promise<void> {
+  const client = clientOrThrow();
+  const rpcName = settleReceivables ? 'leave_household_settling_receivables' : 'leave_household';
+  const { error } = await client.rpc(rpcName, { p_household_id: householdId });
+  throwIfError(error);
+}
+
+export async function deleteCloudAccount(): Promise<void> {
+  const client = clientOrThrow();
+  const { data, error } = await client.functions.invoke('delete-account');
+  if (error) throw new Error(error.message);
+  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') throw new Error(data.error);
+}
+
+export async function deleteCloudHousehold(householdId: string): Promise<void> {
+  const client = clientOrThrow();
+  const { error } = await client.rpc('delete_household', { p_household_id: householdId });
   throwIfError(error);
 }
 

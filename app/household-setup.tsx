@@ -16,7 +16,7 @@ import {
   screenIllustrations,
 } from "@/components/screen-illustration";
 import { typography } from "@/constants/design";
-import { hasSupabaseConfig } from "@/lib/supabase";
+import { hasSupabaseConfig, supabase } from "@/lib/supabase";
 import { useHousehold } from "@/providers/household-provider";
 
 export default function HouseholdSetupScreen() {
@@ -178,9 +178,23 @@ export default function HouseholdSetupScreen() {
       {!hasSupabaseConfig ? (
         <Callout title="Cloud setup required">
           Add the two EXPO_PUBLIC_SUPABASE values from .env.example to create or
-          join a live household. The local demo remains available.
+          join a live household.
         </Callout>
       ) : null}
+      <PrimaryButton
+        label="Account & deletion"
+        tone="dark"
+        icon="manage-accounts"
+        disabled={loading}
+        onPress={() => router.push("/account" as never)}
+      />
+      <PrimaryButton
+        label="Sign out"
+        tone="dark"
+        icon="logout"
+        disabled={loading}
+        onPress={() => void supabase?.auth.signOut()}
+      />
     </AppScreen>
   );
 }

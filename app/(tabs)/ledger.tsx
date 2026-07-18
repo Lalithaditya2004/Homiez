@@ -7,21 +7,22 @@ import { AppScreen, useAppTheme } from '@/components/app-screen';
 import { Avatar, Card, EditorialHeader, FloatingAction, Pill, PrimaryButton, SectionTitle, Segmented, SelectField } from '@/components/homiez-ui';
 import { ScreenIllustration, screenIllustrations } from '@/components/screen-illustration';
 import { typography } from '@/constants/design';
-import { getGlobalNets, getPeerBreakdown, getPeerBreakdownForMember, type PeerBreakdown } from '@/lib/ledger';
+import { debtBetween, getGlobalNets, getPeerBreakdown, getPeerBreakdownForMember, type PeerBreakdown } from '@/lib/ledger';
 import { formatDateTime, formatMoney, moneyToCents } from '@/lib/money';
 import type { SettlementRequest } from '@/lib/types';
 import { useHousehold } from '@/providers/household-provider';
 
 type BreakdownTab = 'owing' | 'owed';
-type SettlementTab = 'to-settle' | 'in-review' | 'accept';
+type SettlementTab = 'to-settle' | 'mark-paid' | 'in-review' | 'accept';
 type AmountModalState =
   | { kind: 'settle'; peer: PeerBreakdown }
+  | { kind: 'mark-paid'; peer: PeerBreakdown }
   | { kind: 'modify'; request: SettlementRequest }
   | null;
 
 export default function LedgerScreen() {
   const theme = useAppTheme();
-  const { data, requestSettlement, resolveSettlement } = useHousehold();
+  const { data, requestSettlement, resolveSettlement, settleAllReceivables, settleReceivable } = useHousehold();
   const currency = data.currency ?? 'INR';
   const [breakdownTab, setBreakdownTab] = useState<BreakdownTab>('owing');
   const [perspectiveTab, setPerspectiveTab] = useState<BreakdownTab>('owing');
@@ -42,8 +43,13 @@ export default function LedgerScreen() {
   const toSettle = actionablePeers.filter((peer) => peer.direction === 'owing' && peer.amountCents > 0);
   const inReview = data.settlementRequests.filter((request) => request.status === 'in-review' && request.fromId === data.currentUserId);
   const acceptSettles = data.settlementRequests.filter((request) => request.status === 'in-review' && request.toId === data.currentUserId);
+  const receivables = data.members
+    .filter((member) => member.status === 'active' && member.id !== data.currentUserId)
+    .map((member) => ({ peerId: member.id, peerName: member.name, direction: 'owed' as const, amountCents: debtBetween(data.peerBalances, member.id, data.currentUserId) }))
+    .filter((peer) => peer.amountCents > 0);
   const [amountModal, setAmountModal] = useState<AmountModalState>(null);
   const [amount, setAmount] = useState('');
+  const [settlementAction, setSettlementAction] = useState(false);
 
   function openSettle(peer: PeerBreakdown) {
     setAmount((peer.amountCents / 100).toFixed(2));
@@ -55,12 +61,28 @@ export default function LedgerScreen() {
     setAmountModal({ kind: 'modify', request });
   }
 
-  function submitAmount() {
+  function openMarkPaid(peer: PeerBreakdown) {
+    setAmount((peer.amountCents / 100).toFixed(2));
+    setAmountModal({ kind: 'mark-paid', peer });
+  }
+
+  async function submitAmount() {
     const cents = moneyToCents(amount);
     if (!amountModal || cents <= 0) return Alert.alert('Enter a valid settlement amount.');
     if (amountModal.kind === 'settle') {
       if (!requestSettlement(amountModal.peer.peerId, cents)) return Alert.alert('That amount is higher than the balance available to settle.');
       Alert.alert('Settlement sent for review', `${amountModal.peer.peerName} has been notified. Your balances stay protected until the request is reviewed.`);
+    } else if (amountModal.kind === 'mark-paid') {
+      if (cents > amountModal.peer.amountCents) return Alert.alert('The amount cannot exceed what this roommate owes you.');
+      setSettlementAction(true);
+      try {
+        await settleReceivable(amountModal.peer.peerId, cents);
+        Alert.alert('Balance settled', `${formatMoney(cents, currency)} owed by ${amountModal.peer.peerName} is now marked settled.`);
+      } catch (error) {
+        return Alert.alert('Could not settle balance', error instanceof Error ? error.message : 'Please try again.');
+      } finally {
+        setSettlementAction(false);
+      }
     } else {
       if (cents > amountModal.request.claimedAmountCents) return Alert.alert('The corrected amount cannot exceed the original claim.');
       resolveSettlement(amountModal.request.id, 'accept', cents);
@@ -121,12 +143,13 @@ export default function LedgerScreen() {
         </Card>
 
         <Card accent={theme.accent} variant="elevated">
-          <SectionTitle title="The Settlement Hub" action="Balances update after review" />
+          <SectionTitle title="The Settlement Hub" action="Debtors request · creditors settle directly" />
           <Segmented
             value={settlementTab}
             onChange={(value) => setSettlementTab(value as SettlementTab)}
             options={[
               { value: 'to-settle', label: `To Settle · ${toSettle.length}` },
+              { value: 'mark-paid', label: `Mark Paid · ${receivables.length}` },
               { value: 'in-review', label: `In Review · ${inReview.length}` },
               { value: 'accept', label: `Accept · ${acceptSettles.length}` },
             ]}
@@ -139,6 +162,41 @@ export default function LedgerScreen() {
                   <PrimaryButton label="Settle" icon="payments" onPress={() => openSettle(peer)} />
                 </Card>
               )) : <EmptyState text="Nothing needs payment from you." />}
+            </View>
+          ) : null}
+          {settlementTab === 'mark-paid' ? (
+            <View style={{ gap: 10 }}>
+              {receivables.length ? (
+                <PrimaryButton
+                  label={settlementAction ? 'Settling…' : 'Settle all owed to me'}
+                  icon="done-all"
+                  tone="dark"
+                  disabled={settlementAction}
+                  onPress={() => Alert.alert(
+                    'Settle every receivable?',
+                    'This immediately marks every active roommate who owes you as settled. No approval request is sent, so use this only after payment or when you choose to forgive the balances.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Settle all',
+                        style: 'destructive',
+                        onPress: () => {
+                          setSettlementAction(true);
+                          void settleAllReceivables()
+                            .catch((error: unknown) => Alert.alert('Could not settle balances', error instanceof Error ? error.message : 'Please try again.'))
+                            .finally(() => setSettlementAction(false));
+                        },
+                      },
+                    ],
+                  )}
+                />
+              ) : null}
+              {receivables.length ? receivables.map((peer) => (
+                <Card key={peer.peerId} variant="inset" style={{ padding: 14 }}>
+                  <PeerRow peer={peer} currency={currency} />
+                  <PrimaryButton label="Mark received / forgiven" icon="check-circle" onPress={() => openMarkPaid(peer)} />
+                </Card>
+              )) : <EmptyState text="No roommate currently owes you." />}
             </View>
           ) : null}
           {settlementTab === 'in-review' ? (
@@ -176,12 +234,16 @@ export default function LedgerScreen() {
       <Modal transparent visible={Boolean(amountModal)} animationType="fade" onRequestClose={() => setAmountModal(null)}>
         <View style={{ flex: 1, justifyContent: 'flex-end', padding: 16, backgroundColor: 'rgba(0,0,0,.66)' }}>
           <Card accent={theme.accent} variant="elevated" style={{ padding: 20 }}>
-            <Pill tone="pending">{amountModal?.kind === 'modify' ? 'CORRECT CLAIM' : 'SEND FOR REVIEW'}</Pill>
+            <Pill tone="pending">{amountModal?.kind === 'modify' ? 'CORRECT CLAIM' : amountModal?.kind === 'mark-paid' ? 'CREDITOR SETTLEMENT' : 'SEND FOR REVIEW'}</Pill>
             <Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 22 }}>
-              {amountModal?.kind === 'modify' ? 'How much arrived?' : `Settle with ${amountModal?.kind === 'settle' ? amountModal.peer.peerName : ''}`}
+              {amountModal?.kind === 'modify' ? 'How much arrived?' : amountModal?.kind === 'mark-paid' ? `Settle ${amountModal.peer.peerName}` : `Settle with ${amountModal?.kind === 'settle' ? amountModal.peer.peerName : ''}`}
             </Text>
             <Text selectable style={{ color: theme.muted, fontSize: 12, lineHeight: 18 }}>
-              {amountModal?.kind === 'modify' ? 'The accepted amount settles now. Any unpaid difference returns to To Settle.' : 'Enter the full amount or make a partial payment.'}
+              {amountModal?.kind === 'modify'
+                ? 'The accepted amount settles now. Any unpaid difference returns to To Settle.'
+                : amountModal?.kind === 'mark-paid'
+                  ? 'This updates the ledger immediately without asking the debtor. Use it after receiving payment or to forgive the amount.'
+                  : 'Enter the full amount or make a partial payment.'}
             </Text>
             <TextInput
               accessibilityLabel="Settlement amount"
@@ -193,7 +255,7 @@ export default function LedgerScreen() {
               placeholderTextColor={theme.faint}
               style={{ minHeight: 66, borderRadius: 19, backgroundColor: theme.background, color: theme.heading, paddingHorizontal: 16, fontFamily: typography.extraBold, fontSize: 30, fontVariant: ['tabular-nums'], boxShadow: 'inset 4px 4px 11px rgba(0,0,0,.28)' }}
             />
-            <PrimaryButton label={amountModal?.kind === 'modify' ? 'Proceed with amount' : 'Submit settlement'} icon="arrow-forward" onPress={submitAmount} />
+            <PrimaryButton label={settlementAction ? 'Working…' : amountModal?.kind === 'modify' ? 'Proceed with amount' : amountModal?.kind === 'mark-paid' ? 'Mark settled' : 'Submit settlement'} icon="arrow-forward" disabled={settlementAction} onPress={() => void submitAmount()} />
             <Pressable accessibilityRole="button" onPress={() => setAmountModal(null)} style={{ alignItems: 'center', paddingVertical: 10 }}><Text style={{ color: theme.muted, fontFamily: typography.semibold }}>Cancel</Text></Pressable>
           </Card>
         </View>

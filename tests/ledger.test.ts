@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { applyPeerBalanceDelta, applySettlementToExpenseSplits, debtBetween, getPeerBreakdown, getPeerBreakdownForMember, reconcileOpposingExpenseSplits } from '@/lib/ledger';
+import { applyPeerBalanceDelta, applySettlementToExpenseSplits, debtBetween, getMemberBalanceSummary, getPeerBreakdown, getPeerBreakdownForMember, householdDeletionBlockReason, memberHasOpenBalance, reconcileOpposingExpenseSplits } from '@/lib/ledger';
 import type { HouseholdData } from '@/lib/types';
 
 const baseData = {
@@ -62,5 +62,51 @@ describe('peer ledger', () => {
     const reconciled = reconcileOpposingExpenseSplits(expenses);
     expect(reconciled.find((expense) => expense.id === 'a-owes')?.splits[0].settledCents).toBe(20000);
     expect(reconciled.find((expense) => expense.id === 'b-owes')?.splits[0].settledCents).toBe(20000);
+  });
+
+  test('blocks either side of an open balance from moving out', () => {
+    const balances = applyPeerBalanceDelta([], 'a', 'b', 25000);
+    expect(memberHasOpenBalance(balances, 'a')).toBe(true);
+    expect(memberHasOpenBalance(balances, 'b')).toBe(true);
+    expect(memberHasOpenBalance(balances, 'c')).toBe(false);
+  });
+
+  test('separates debts from voluntary receivables for self-exit and deletion decisions', () => {
+    let balances = applyPeerBalanceDelta([], 'a', 'b', 25000);
+    balances = applyPeerBalanceDelta(balances, 'c', 'a', 90000);
+    expect(getMemberBalanceSummary(balances, 'a')).toEqual({ owingCents: 25000, owedCents: 90000 });
+    expect(getMemberBalanceSummary(balances, 'b')).toEqual({ owingCents: 0, owedCents: 25000 });
+    expect(getMemberBalanceSummary(balances, 'c')).toEqual({ owingCents: 90000, owedCents: 0 });
+  });
+
+  test('settling a creditor-authorized amount reduces only that debtor-creditor expense trail', () => {
+    const expenses = [
+      { id: 'a-to-b', description: 'A owes B', amountCents: 50000, currency: 'INR', paidBy: 'b', splitMethod: 'custom', splits: [{ memberId: 'a', owedCents: 50000, settledCents: 0 }], createdAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'c-to-b', description: 'C owes B', amountCents: 30000, currency: 'INR', paidBy: 'b', splitMethod: 'custom', splits: [{ memberId: 'c', owedCents: 30000, settledCents: 0 }], createdAt: '2026-01-02T00:00:00.000Z' },
+    ] as HouseholdData['expenses'];
+    const settled = applySettlementToExpenseSplits(expenses, 'a', 'b', 20000);
+    expect(settled.find((expense) => expense.id === 'a-to-b')?.splits[0].settledCents).toBe(20000);
+    expect(settled.find((expense) => expense.id === 'c-to-b')?.splits[0].settledCents).toBe(0);
+  });
+
+  test('allows deleting an empty household only for its sole active member', () => {
+    const soleMember = {
+      ...baseData,
+      members: [baseData.members[0]],
+    };
+    expect(householdDeletionBlockReason(soleMember)).toBeUndefined();
+    expect(householdDeletionBlockReason(baseData)).toContain('Every other roommate');
+  });
+
+  test('blocks household deletion while any balance or settlement review remains', () => {
+    const soleMember = { ...baseData, members: [baseData.members[0]] };
+    expect(householdDeletionBlockReason({
+      ...soleMember,
+      peerBalances: applyPeerBalanceDelta([], 'a', 'b', 1),
+    })).toContain('balance');
+    expect(householdDeletionBlockReason({
+      ...soleMember,
+      settlementRequests: [{ id: 'pending', fromId: 'a', toId: 'b', amountCents: 1, claimedAmountCents: 1, originalDebtCents: 1, status: 'in-review', createdAt: new Date().toISOString() }],
+    })).toContain('pending settlement');
   });
 });

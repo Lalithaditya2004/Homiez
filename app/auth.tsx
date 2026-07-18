@@ -1,5 +1,6 @@
+import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
 import { AppScreen, useAppTheme } from "@/components/app-screen";
 import { BrandLockup } from "@/components/brand-mark";
@@ -16,9 +17,11 @@ import {
 } from "@/components/screen-illustration";
 import { typography } from "@/constants/design";
 import { hasSupabaseConfig, supabase } from "@/lib/supabase";
+import { useHousehold } from "@/providers/household-provider";
 
 export default function AuthScreen() {
   const theme = useAppTheme();
+  const { cloudState, data } = useHousehold();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,6 +66,40 @@ export default function AuthScreen() {
     fontSize: 15,
     boxShadow: "inset 4px 4px 11px rgba(0,0,0,.27)",
   } as const;
+
+  if (cloudState === "synced") {
+    const current = data.members.find((member) => member.id === data.currentUserId);
+    return (
+      <AppScreen contentContainerStyle={{ minHeight: "100%", justifyContent: "center" }}>
+        <Card accent={theme.accent} variant="elevated">
+          <EditorialHeader
+            eyebrow="Your private key"
+            title="Account & connection"
+            description="This device is securely connected to your shared household."
+          />
+          <View style={{ height: 1, backgroundColor: theme.border }} />
+          <BrandLockup compact />
+          <Text selectable style={{ color: theme.heading, fontFamily: typography.semibold, fontSize: 18 }}>
+            {current?.name ?? "Roommate"}
+          </Text>
+          <Text selectable style={{ color: theme.muted, fontFamily: typography.regular, fontSize: 13 }}>
+            {current?.email ?? "Signed in"}
+          </Text>
+          <PrimaryButton
+            label={loading ? "Signing out…" : "Sign out"}
+            tone="dark"
+            icon="logout"
+            disabled={loading}
+            onPress={() => {
+              setLoading(true);
+              void supabase?.auth.signOut().finally(() => setLoading(false));
+            }}
+          />
+        </Card>
+      </AppScreen>
+    );
+  }
+
   return (
     <AppScreen keyboardShouldPersistTaps="handled">
       <ScreenIllustration source={screenIllustrations.account} artworkOnly />
@@ -83,7 +120,7 @@ export default function AuthScreen() {
         >
           <BrandLockup compact />
           <Pill tone={hasSupabaseConfig ? "positive" : "neutral"}>
-            {hasSupabaseConfig ? "SUPABASE CONNECTED" : "DEMO WORKSPACE"}
+            {hasSupabaseConfig ? "SUPABASE CONNECTED" : "CLOUD NOT CONFIGURED"}
           </Pill>
         </View>
         <View style={{ gap: 8 }}>
@@ -107,6 +144,9 @@ export default function AuthScreen() {
             placeholderTextColor={theme.faint}
             style={field}
           />
+          <Pressable accessibilityRole="button" onPress={() => router.push("/forgot-password" as never)} style={{ alignSelf: "flex-end", paddingVertical: 7 }}>
+            <Text style={{ color: theme.accent, fontFamily: typography.semibold, fontSize: 12 }}>Forgot password?</Text>
+          </Pressable>
         </View>
         <View style={{ gap: 8 }}>
           <Text
@@ -145,9 +185,8 @@ export default function AuthScreen() {
         />
       </Card>
       {!hasSupabaseConfig ? (
-        <Callout title="Private to this device, for now.">
-          Add the Supabase values from .env.example to enable real accounts and
-          secure device-to-device updates.
+        <Callout title="Cloud setup required">
+          Add the Supabase values from .env.example before accounts can be used.
         </Callout>
       ) : (
         <Callout title="Private by default">

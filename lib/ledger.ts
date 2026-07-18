@@ -111,6 +111,39 @@ export function debtBetween(records: PeerBalance[], debtorId: string, creditorId
   return Math.max(0, record.balanceCents * pair.direction);
 }
 
+export function memberHasOpenBalance(records: PeerBalance[], memberId: string): boolean {
+  return records.some((record) =>
+    record.balanceCents !== 0
+    && (record.userLowId === memberId || record.userHighId === memberId),
+  );
+}
+
+export function getMemberBalanceSummary(records: PeerBalance[], memberId: string) {
+  return records.reduce(
+    (summary, record) => {
+      if (record.balanceCents === 0 || (record.userLowId !== memberId && record.userHighId !== memberId)) return summary;
+      const memberIsLow = record.userLowId === memberId;
+      const memberOwes = memberIsLow ? record.balanceCents > 0 : record.balanceCents < 0;
+      if (memberOwes) summary.owingCents += Math.abs(record.balanceCents);
+      else summary.owedCents += Math.abs(record.balanceCents);
+      return summary;
+    },
+    { owingCents: 0, owedCents: 0 },
+  );
+}
+
+export function householdDeletionBlockReason(data: HouseholdData): string | undefined {
+  const activeCount = data.members.filter((member) => member.status === 'active').length;
+  if (activeCount !== 1) return 'Every other roommate must move out before this household can be deleted.';
+  if (data.peerBalances.some((record) => record.balanceCents !== 0)) {
+    return 'Resolve every balance before deleting this household.';
+  }
+  if (data.settlementRequests.some((request) => request.status === 'in-review')) {
+    return 'Resolve pending settlement requests before deleting this household.';
+  }
+  return undefined;
+}
+
 function pendingAdjustment(request: SettlementRequest, mode: 'dashboard' | 'actionable') {
   if (request.status !== 'in-review') return 0;
   if (mode === 'actionable') return request.amountCents;

@@ -14,7 +14,8 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { themeFor, typography } from '@/constants/design';
-import { HouseholdProvider } from '@/providers/household-provider';
+import { AccessProvider, useAccess } from '@/providers/access-provider';
+import { HouseholdProvider, useHousehold } from '@/providers/household-provider';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
@@ -56,8 +57,28 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={navigationTheme}>
-      <HouseholdProvider>
-        <Stack
+      <AccessProvider>
+        <HouseholdProvider>
+          <RootNavigator colors={colors} />
+          <StatusBar style="light" backgroundColor={colors.background} />
+        </HouseholdProvider>
+      </AccessProvider>
+    </ThemeProvider>
+  );
+}
+
+function RootNavigator({ colors }: { colors: ReturnType<typeof themeFor> }) {
+  const { hasCompletedOnboarding, isOnboardingReady } = useAccess();
+  const { cloudState, isReady } = useHousehold();
+
+  if (!isOnboardingReady || !isReady || cloudState === 'loading') return null;
+
+  const signedOut = cloudState === 'signed-out' || cloudState === 'demo';
+  const needsHousehold = cloudState === 'needs-household';
+  const synced = cloudState === 'synced';
+
+  return (
+    <Stack
           screenOptions={{
             headerShadowVisible: false,
             headerBackButtonDisplayMode: 'minimal',
@@ -66,18 +87,34 @@ export default function RootLayout() {
             headerTitleStyle: { color: colors.heading, fontFamily: typography.bold, fontSize: 15 },
             contentStyle: { backgroundColor: colors.background },
           }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="add-expense" options={{ presentation: 'formSheet', title: 'Add expense', sheetGrabberVisible: true }} />
-          <Stack.Screen name="expenses-split" options={{ presentation: 'modal', title: 'Expenses split' }} />
-          <Stack.Screen name="add-chore" options={{ presentation: 'formSheet', title: 'New chore', sheetGrabberVisible: true }} />
-          <Stack.Screen name="chore-detail" options={{ presentation: 'modal', title: 'Chore details' }} />
-          <Stack.Screen name="chore-history" options={{ presentation: 'modal', title: 'Chore history' }} />
-          <Stack.Screen name="archived-roommates" options={{ presentation: 'modal', title: 'Archived roommates' }} />
-          <Stack.Screen name="household-setup" options={{ presentation: 'formSheet', title: 'Set up household', sheetGrabberVisible: true }} />
-          <Stack.Screen name="auth" options={{ presentation: 'modal', title: 'Account' }} />
-        </Stack>
-        <StatusBar style="light" backgroundColor={colors.background} />
-      </HouseholdProvider>
-    </ThemeProvider>
+      <Stack.Protected guard={!hasCompletedOnboarding}>
+        <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={hasCompletedOnboarding}>
+        <Stack.Screen name="forgot-password" options={{ presentation: 'modal', title: 'Forgot password' }} />
+        <Stack.Screen name="reset-password" options={{ presentation: 'modal', title: 'Reset password', gestureEnabled: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={hasCompletedOnboarding && signedOut}>
+        <Stack.Screen name="auth" options={{ headerShown: false, gestureEnabled: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={hasCompletedOnboarding && needsHousehold}>
+        <Stack.Screen name="household-setup" options={{ headerShown: false, gestureEnabled: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={hasCompletedOnboarding && (needsHousehold || synced)}>
+        <Stack.Screen name="account" options={{ presentation: 'modal', title: 'Account' }} />
+      </Stack.Protected>
+      <Stack.Protected guard={hasCompletedOnboarding && cloudState === 'error'}>
+        <Stack.Screen name="connection" options={{ headerShown: false, gestureEnabled: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={hasCompletedOnboarding && synced}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="add-expense" options={{ presentation: 'formSheet', title: 'Add expense', sheetGrabberVisible: true }} />
+        <Stack.Screen name="expenses-split" options={{ presentation: 'modal', title: 'Expenses split' }} />
+        <Stack.Screen name="add-chore" options={{ presentation: 'formSheet', title: 'New chore', sheetGrabberVisible: true }} />
+        <Stack.Screen name="chore-detail" options={{ presentation: 'modal', title: 'Chore details' }} />
+        <Stack.Screen name="chore-history" options={{ presentation: 'modal', title: 'Chore history' }} />
+        <Stack.Screen name="archived-roommates" options={{ presentation: 'modal', title: 'Archived roommates' }} />
+      </Stack.Protected>
+    </Stack>
   );
 }

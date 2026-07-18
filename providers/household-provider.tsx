@@ -3,14 +3,16 @@ import React, { createContext, useCallback, useEffect, useMemo, useState } from 
 
 import { addChoreDuration } from '@/lib/chores';
 import { demoHousehold } from '@/lib/demo-data';
-import { applyPeerBalanceDelta, applySettlementToExpenseSplits, buildPeerBalances, getPeerBreakdown, reconcileOpposingExpenseSplits } from '@/lib/ledger';
+import { applyPeerBalanceDelta, applySettlementToExpenseSplits, buildPeerBalances, getMemberBalanceSummary, getPeerBreakdown, householdDeletionBlockReason, memberHasOpenBalance, reconcileOpposingExpenseSplits } from '@/lib/ledger';
 import {
   completeCloudChore,
   createCloudChore,
   createCloudExpense,
   createCloudHousehold,
+  deleteCloudHousehold,
   deleteCloudChoreTemplate,
   joinCloudHousehold,
+  leaveCloudHousehold,
   loadCurrentCloudHousehold,
   logCloudAdHocChore,
   moveOutCloudMember,
@@ -18,6 +20,8 @@ import {
   requestCloudSettlement,
   resolveCloudSettlement,
   scheduleCloudChore,
+  settleAllCloudReceivables,
+  settleCloudReceivable,
   skipCloudChore,
   snoozeCloudChore,
   undoCloudChore,
@@ -56,6 +60,8 @@ type HouseholdContextValue = {
   addExpense: (expense: ExpenseDraft) => void;
   requestSettlement: (toId: string, amountCents: number) => boolean;
   resolveSettlement: (requestId: string, action: 'accept' | 'reject', acceptedAmountCents?: number) => boolean;
+  settleReceivable: (debtorId: string, amountCents: number) => Promise<void>;
+  settleAllReceivables: () => Promise<void>;
   createChore: (input: CreateChoreInput) => void;
   updateChore: (input: UpdateChoreInput) => void;
   scheduleChore: (templateId: string, assigneeId?: string, dueDate?: string) => void;
@@ -65,8 +71,12 @@ type HouseholdContextValue = {
   undoChore: (logId: string) => void;
   logAdHocChore: (name: string) => void;
   deleteChoreTemplate: (templateId: string) => void;
-  moveOutMember: (memberId: string) => void;
-  reclaimMember: (memberId: string) => boolean;
+  moveOutMember: (memberId: string) => Promise<void>;
+  leaveHousehold: (options?: { settleReceivables?: boolean }) => Promise<void>;
+  deleteHousehold: () => Promise<void>;
+  moveOutBlockReason: (memberId: string) => string | undefined;
+  deleteHouseholdBlockReason?: string;
+  reclaimMember: (memberId: string) => Promise<void>;
   createCloudHousehold: (name: string) => Promise<void>;
   joinCloudHousehold: (joinCode: string) => Promise<void>;
   refreshCloud: () => Promise<void>;
@@ -354,6 +364,15 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
       queueCloudMutation(() => resolveCloudSettlement(requestId, action, amount));
       return true;
     },
+    async settleReceivable(debtorId, amountCents) {
+      if (amountCents < 1) throw new Error('Enter a valid settlement amount.');
+      await settleCloudReceivable(data.id, debtorId, amountCents);
+      await refreshCloud();
+    },
+    async settleAllReceivables() {
+      await settleAllCloudReceivables(data.id);
+      await refreshCloud();
+    },
     createChore({ name, assigneeId, dueDate, frequencyInterval, frequencyUnit, rotationEnabled }) {
       const cleanName = name.trim();
       if (!cleanName) return;
@@ -551,33 +570,47 @@ export function HouseholdProvider({ children }: React.PropsWithChildren) {
       }));
       queueCloudMutation(() => deleteCloudChoreTemplate(templateId));
     },
-    moveOutMember(memberId) {
-      if (memberId === data.currentUserId) return;
-      setData((current) => ({
-        ...current,
-        members: current.members.map((member) =>
-          member.id === memberId && member.status === 'active'
-            ? { ...member, status: 'archived', movedOutBy: current.currentUserId, movedOutAt: new Date().toISOString() }
-            : member,
-        ),
-      }));
-      queueCloudMutation(() => moveOutCloudMember(data.id, memberId));
+    async moveOutMember(memberId) {
+      if (memberId === data.currentUserId) throw new Error('Use Leave household to move yourself out.');
+      if (memberHasOpenBalance(data.peerBalances, memberId)) {
+        throw new Error('This roommate must settle everything they owe or are owed before moving out.');
+      }
+      await moveOutCloudMember(data.id, memberId);
+      await refreshCloud();
     },
-    reclaimMember(memberId) {
+    async leaveHousehold(options) {
+      if (activeMembers.length <= 1) throw new Error('You are the last active member. Delete the household instead.');
+      const summary = getMemberBalanceSummary(data.peerBalances, data.currentUserId);
+      if (summary.owingCents > 0) throw new Error('Settle everything you owe before leaving this household.');
+      if (summary.owedCents > 0 && !options?.settleReceivables) {
+        throw new Error('Settle or forgive everything owed to you before leaving this household.');
+      }
+      await leaveCloudHousehold(data.id, Boolean(options?.settleReceivables));
+      await refreshCloud();
+    },
+    async deleteHousehold() {
+      const reason = householdDeletionBlockReason(data);
+      if (reason) throw new Error(reason);
+      await deleteCloudHousehold(data.id);
+      await refreshCloud();
+    },
+    moveOutBlockReason(memberId) {
+      return memberHasOpenBalance(data.peerBalances, memberId)
+        ? 'This roommate must settle everything they owe or are owed before moving out.'
+        : undefined;
+    },
+    async reclaimMember(memberId) {
       const member = data.members.find((candidate) => candidate.id === memberId);
-      if (!member || member.movedOutBy !== data.currentUserId) return false;
-      setData((current) => ({
-        ...current,
-        members: current.members.map((candidate) =>
-          candidate.id === memberId ? { ...candidate, status: 'active', movedOutBy: undefined, movedOutAt: undefined } : candidate,
-        ),
-      }));
-      queueCloudMutation(() => reclaimCloudMember(data.id, memberId));
-      return true;
+      if (!member || member.movedOutBy !== data.currentUserId) {
+        throw new Error('Only the roommate who initiated this move-out can undo it.');
+      }
+      await reclaimCloudMember(data.id, memberId);
+      await refreshCloud();
     },
     createCloudHousehold: createConfiguredHousehold,
     joinCloudHousehold: joinConfiguredHousehold,
     refreshCloud,
+    deleteHouseholdBlockReason: householdDeletionBlockReason(data),
   }), [activeMembers, archivedMembers, cloudError, cloudState, createConfiguredHousehold, data, isReady, joinConfiguredHousehold, queueCloudMutation, recentChoreLogs, refreshCloud]);
 
   return <HouseholdContext value={value}>{children}</HouseholdContext>;
